@@ -27,16 +27,14 @@ NULL
 #'
 #' @export
 
-get_control_set<- function(
+get_control_set <- function(
   eventdate,
   ret_control,
-  eventwind,
   estwind,
+  eventwind,
   estobs_min,
   eventobs_min
 ){
-
-  if(estobs_min)
 
   # gen relative time variable
   ret_control <- ret_control[, eventdate := eventdate]
