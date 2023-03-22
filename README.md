@@ -5,7 +5,7 @@ R package for the synthetic matching method originally suggested by [Acemoglu et
 ## Installation
 
 ```
-devtools::install_github("davidkreitmeir/synthReturns")
+devtools::install_github("davidkreitmeir/synthReturn")
 ```
 
 ## Empirical Framework
