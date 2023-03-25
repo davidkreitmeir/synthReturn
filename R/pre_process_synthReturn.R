@@ -237,7 +237,6 @@ pre_process_synthReturn <- function(
     warning("Control group panel(s) contain missing values. Firms with missing values on trading days of treated firm are dropped from control group.")
   }
 
-
   out <- list(
     r_treat,
     r_control
