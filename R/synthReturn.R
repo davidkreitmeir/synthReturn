@@ -1,71 +1,91 @@
 NULL
 ###################################################################################
-#' Function that pre-processes returns of the control group
+#' Function that
 #'
-#' @description \code{get_control_set} is used to pre-process the returns of the control group
-#' and returns an event date specific set of "potential" control companies that fulfill the stated conditions
+#' @description \code{synthReturn} computes the treatment effect \eqn{\hat{\phi}} using the synthetic
+#'  matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
+#'  accommodate multiple event dates and missing values.
 #'
+#' @param data The name of the data.frame that contains the data. Data should be stored in the "long" format.
+#' @param tidname The name of the column containing the treated unit id.
+#' @param tidname The name of the column containing the control unit id.
+#' @param dname The name of the column containing the date variable.
+#' @param rname The name of the column containing the stock returns.
+#' @param edname The name of the column containing the (treatment firm specific) event date.
+#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`
+#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`
+#' @param estobs_min Argument to define minimum number of trading days during the estimation window.
+#' Can be an integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days
+#' are allowed.
+#' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
+#' integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
+#' @param placebo Whether inference via placebo treatment group effects should be drawn. Default is `TRUE`
+#' @param ndraws Number of randomly drawn placebo treatment group at each (unique) event date.
+#' @param parallel If analysis should be run in parallel with `furrr`. Default is `FALSE` (i.e. analysis is run
+#'  sequentially)
+#' @param ncore Number of cores used to run analysis (not relevant if parallel = \code{FALSE}).
+#' Default is 1 (i.e. run sequentially).
 #'
-#' @param returns data frame containing returns for treatment and control group or list of
-#' two data frames of the form `list(ret_treat, ret_control)` with the first data frame `ret_treat`
-#' comprising the returns of the treatment group and the second data frame `ret_control`
-#' containing the returns for the control group .
-#' @param estwind event window interval `c(est_start, est_end)` in relative time to event date. E.g. `c(-280, -30)`
-#' denotes an estimation window of 250 days ending 30 days prior to the event day.
-#' @param eventwind event window interval `c(event_start, event_end)` in relative time to event date. E.g.
-#' `c(0, 10)` denotes an event window of 10 days starting on the event day 0 and ending 10 days post the event day.
-#' @return A data.table containing the following columns:
-#'  \item{ATT}{The TWFE DID point estimate}
+#' @return A data.table containing the following components:
+#' \item{tau}{Relative time to event day (\eqn{\tau} = 0).}
+#' \item{phi}{The treatment effect estimate for the period \eqn{[0,k]} during the event window.}
+#' \item{ci_90_lower}{90\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
+#' \item{ci_90_upper}{90\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
+#' \item{ci_95_lower}{95\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
+#' \item{ci_95_upper}{95\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
+#' \item{ci_99_lower}{99\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
+#' \item{ci_99_upper}{99\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
+#'
+#' @importFrom future plan
+#' @importFrom furrr future_map
+#' @import data.table
 #'
 #' @export
-
 synthReturn <- function(
-  returns,
-  treatid,
-  controlid,
-  ret,
-  date,
-  eventdate,
+  data,
+  tidname,
+  cidname,
+  dname,
+  rname,
+  edname,
   estwind,
   eventwind,
   estobs_min = 1,
   eventobs_min = 1,
   placebo = TRUE,
-  K,
+  ndraws = 25,
+  parallel = FALSE,
+  ncore = 1
   ){
 
-  # set key variables
-
-  # check if `returns` is a list: if yes unpack
-
-  # convert to data.table if not already
-
-  # check if all variables needed are in data.table
-
-
-  estwindlen = estwind[2] - estwind[1] + 1
-  eventwindlen = eventwind[2] - eventwind[1] + 1
-  # if minimum trading days during estimation window in percent
-  if(estobs_min >= 0 & estobs_min <= 1){
-    estobs_min = floor(estobs_min*estwindlen)
-  }
-  # if minimum trading days during event window in percent
-  if(estobs_min >= 0 & estobs_min <= 1){
-    eventobs_min = floor(eventobs_min*eventwindlen)
+  if(parallel == TRUE){
+    if(ncore == 1){
+      warning("Parallelization is not used. Set ncore > 1 to use more than 1 worker.")
+    }
+    future::plan(multisession, workers = ncore)
   }
 
-  # get returns
+  #-----------------------------------------------------------------------------
+  # Pre-process data
+  dp <- pre_process_synthReturn(
+    data = data,
+    tidname = tidname,
+    cidname = cidname,
+    rname = rname,
+    dname = dname,
+    edname = edname,
+    estwind = estwind,
+    eventwind = eventwind,
+    estobs_min = estobs_min,
+    eventobs_min = eventobs_min
+  )
+
+  #-----------------------------------------------------------------------------
+  # Implement the methods
+  # First panel data
 
 
-  # run placebo test for inference
-  if(placebo == TRUE){
 
 
 
-
-
-  }
-
-
-
-  }
+}

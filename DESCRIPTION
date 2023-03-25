@@ -16,7 +16,7 @@ Imports:
     furrr,
     infer,
     lubridate,
-    purrr,
+    future,
     quadprog,
     tidyr
 Suggested:

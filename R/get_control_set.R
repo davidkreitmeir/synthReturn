@@ -2,34 +2,30 @@ NULL
 ###################################################################################
 #' Function that pre-processes returns of the control group
 #'
-#' @description \code{get_control_set} is used to pre-process the returns of the control group
-#' and returns an event date specific set of "potential" control companies that fulfill the stated conditions
+#' @description \code{get_treat_set} is used to create an "event panel" of potential control group
+#' firms for each (unique) event date.
 #'
-#'
-#' @param eventdate the date on which the event took place.
-#' @param ret_control data.table containing that has to contain the following columns: controlid, date, ret
-#' @param eventwind An \eqn{n} x \eqn{1} vector of Group indicators (=1 if observation is treated in the post-treatment, =0 otherwise).
-#' @param covariates An \eqn{n} x \eqn{k} matrix of covariates to be used in the regression estimation.
-#' @param i.weights An \eqn{n} x \eqn{1} vector of weights to be used. If NULL, then every observation has the same weights.
-#' @param boot Logical argument to whether bootstrap should be used for inference. Default is FALSE.
-#' @param boot.type Type of bootstrap to be performed (not relevant if \code{boot = FALSE}). Options are "weighted" and "multiplier".
-#' If \code{boot = TRUE}, default is "weighted".
-#' @param nboot Number of bootstrap repetitions (not relevant if \code{boot = FALSE}). Default is 999.
-#' @param inffunc Logical argument to whether influence function should be returned. Default is FALSE.
+#' @param ed date of event.
+#' @param data The name of the data.table that contains the data.
+#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`
+#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`
+#' @param estobs_min Argument to define minimum number of trading days during the estimation window.
+#' Can be an integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days
+#' are allowed.
+#' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
+#' integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #'
 #' @return A data.table containing the following columns:
-#'  \item{ATT}{The TWFE DID point estimate}
-#'  \item{se}{The TWFE DID standard error}
-#'  \item{uci}{Estimate of the upper bound of a 95\% CI for the TWFE parameter.}
-#'  \item{lci}{Estimate of the lower bound of a 95\% CI for the TWFE parameter.}
-#'  \item{boots}{All Bootstrap draws of the ATT, in case bootstrap was used to conduct inference. Default is NULL}
-#'  \item{att.inf.func}{Estimate of the influence function. Default is NULL}
+#'  \item{cid}{Unique (event \eqn{\times}) control firm identifier.}
+#'  \item{d}{Trading Date.}
+#'  \item{ed}{Event date}
+#'  \item{r}{Stock return.}
 #'
-#' @export
+#' @import data.table
 
 get_control_set <- function(
-  eventdate,
-  ret_control,
+  ed,
+  data,
   estwind,
   eventwind,
   estobs_min,
@@ -37,26 +33,30 @@ get_control_set <- function(
 ){
 
   # gen relative time variable
-  ret_control <- ret_control[, eventdate := eventdate]
-  ret_control <- ret_control[, datenum := 1:.N, by = tempid]
-  target <- ret_control[, target := ifelse(date == eventdate, datenum, 0)][, .(target = max(target)), by = tempid]
-  ret_control <- ret_control[, target := NULL][target, on = .(tempid)]
-  ret_control <- ret_control[, tau := datenum - target][, `:=` (target = NULL,datenum = NULL)]
+  data <- data[, ed := ed]
+  data <- data[, datenum := 1:.N, by = cid]
+  target <- data[, target := base::ifelse(d == ed, datenum, 0)][, .(target = max(target)), by = cid]
+  data <- data[, target := NULL][target, on = .(cid)]
+  data <- data[, tau := datenum - target][, `:=` (target = NULL,datenum = NULL)]
   # create indicator for
-  ret_control <- ret_control[, est_wind := ifelse(tau >= estwind[1] & tau < estwind[2], 1,0)][, event_wind := ifelse(tau >= eventwind[1] & tau <= eventwind[2], 1,0) ]
-  ret_control <- ret_control[(est_wind == 1 | event_wind == 1),]
+  data <- data[, est_wind := base::ifelse(tau >= estwind[1] & tau < estwind[2], 1,0)][, event_wind := base::ifelse(tau >= eventwind[1] & tau <= eventwind[2], 1,0) ]
+  data <- data[(est_wind == 1 | event_wind == 1),]
   # get no of non-missing trading days for estimation AND event windows
-  ret_control <- ret_control[, count_event_obs := sum(!is.na(ret) & is.finite(ret) & event_wind == 1), by = tempid]
-  ret_control <- ret_control[, count_est_obs := sum(!is.na(ret) & is.finite(ret) & est_wind == 1), by = tempid]
+  data <- data[, n_est_obs := base::sum(!is.na(r) & base::is.finite(r) & est_wind == 1), by = cid]
+  data <- data[, n_event_obs := base::sum(!is.na(r) & base::is.finite(r) & event_wind == 1), by = cid]
   # Drop thinly-traded companies or corporations without return variance
-  ret_var_ids <- ret_control[ret != 0 & !is.na(ret) & is.finite(ret),][,.(ret_var = .N), by = .(tempid)][ret_var > 0, "tempid"]$tempid
-  control_corp_ids <- ret_control[(count_est_obs >= estobs_min) & (count_event_obs >= eventobs_min), .SD[1], by = "tempid"]
-  control_corp_ids <- control_corp_ids[tempid %in% ret_var_ids, c("tempid", "eventdate")]
-  control_corp_ids <- control_corp_ids$tempid
+  var_ids <- data[r != 0 & !is.na(r) & base::is.finite(r),][,.(r_var = .N), by = .(cid)][r_var > 0, "cid"]$cid
+  cids <- data[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), .SD[1], by = "cid"]
+  cids <- cids[cid %in% var_ids, c("cid", "ed")]
+  cids <- cids$cid
 
   # return set of potential control corporations for event date
-  ret_control <- ret_control[tempid %in% control_corp_ids, c("tempid", "eventdate", "date", "ret")]
+  data <- data[cid %in% cids, c("cid", "ed", "d", "r")]
 
-  return(ret_control)
+  return(data)
 
 }
+
+#' @export
+get_control_set =  possibly(get_control_set, otherwise = NULL, quiet = TRUE)
+
