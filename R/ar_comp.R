@@ -13,6 +13,7 @@ NULL
 #'  \item{sigma}{"Goodness" of fit measure.}
 #'
 #' @import data.table
+#' @importFrom purrr possibly
 #' @importFrom quadprog solve.QP
 #' @importFrom corpcor is.positive.definite
 #' @importFrom corpcor make.positive.definite
@@ -90,11 +91,11 @@ ar_comp <- function(data){
   ars <- ars[, tau := row - (estwindlen + 1)][, row := NULL]
 
   # keep only ARs during event window
-  out <- estimates[eventwind == 1, c("tau", "ar", "sigma")]
+  out <- ars[eventwind == 1, c("tau", "ar", "sigma")]
 
   return(out)
 
 }
 
 #' @export
-ar_comp <- possibly(returnsynthAR, otherwise = NULL, quiet = TRUE)
+ar_comp <- purrr::possibly(ar_comp, otherwise = NULL, quiet = TRUE)

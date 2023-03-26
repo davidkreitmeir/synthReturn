@@ -25,6 +25,8 @@ NULL
 #'  and 0 otherwise.}
 #'
 #' @import data.table
+#' @importFrom purrr possibly
+
 
 get_treat_set <- function(
   ed,
@@ -62,5 +64,5 @@ get_treat_set <- function(
 
 # make sure code does not break because of an error during calculation of a specific corporation
 #' @export
-get_treat_set =  possibly(get_treat_set, otherwise = NULL, quiet = TRUE)
+get_treat_set =  purrr::possibly(get_treat_set, otherwise = NULL, quiet = TRUE)
 
