@@ -19,7 +19,10 @@ pre_process_synthReturn <- function(
   estwind,
   eventwind,
   estobs_min,
-  eventobs_min
+  eventobs_min,
+  placebo,
+  ngroup,
+  ndraws
 ){
 
   #-----------------------------------------------------------------------------
@@ -167,6 +170,22 @@ pre_process_synthReturn <- function(
     }
   }
 
+  # check placebo options
+  if(placebo == TRUE){
+    if(!is.integer(ndraws)){
+      stop("The value of ndraws has to be an integer (>=) 1. Please convert it.")
+    }
+    if(ngroup <= 1){
+      stop("The value of ngroup has to be larger than 1. Please convert it.")
+    }
+  }
+
+  # check parallel options
+  if(parallel == TRUE){
+    if(!is.integer(ndraws)){
+      stop("The value of ncore has to be an integer >= 1. Please convert it.")
+    }
+  }
 
   # if minimum trading days during estimation window in percent, convert to next (smallest) integer
   if(estobs_min >= 0 & estobs_min <= 1){
