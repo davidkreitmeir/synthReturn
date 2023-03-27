@@ -24,38 +24,39 @@ NULL
 #' @import data.table
 #' @importFrom purrr possibly
 
-get_event_panel <- function(treat_ret_DT, control_ret_DT){
+get_event_panel <- function(r_treat, r_control){
 
-  # get set of all potential control comps for eventdate
-  eventdate <- treat_ret_DT[, .SD[1], by = stata_eventdate]$stata_eventdate
-  data <- control_ret_DT[stata_eventdate == eventdate,]
+  # get set of all "potential" control companies for event date
+  edate <- r_treat[, .SD[1], by = ed]$ed
+  r_event <- r_control[ed == edate,]
 
   # get dates when treated corporation is traded
-  dates <- treat_ret_DT[!is.na(ret) & is.finite(ret), c("date", "event_wind", "est_wind")]
-  tdates <- dates$date
+  dates <- r_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
+  tdates <- dates$d
   # select control companies
-  cids <- data[!is.na(ret) & date %in% tdates, c("tempid", "date", "ret")]
+  cids <- r_event[!is.na(r) & d %in% tdates, c("cid", "date", "r")]
   # (1) No missing trading days on days treated corporation is traded
-  cids <- cids[, tdays:= 1:.N, by = tempid]
-  cids <- cids[,.(tdays = max(tdays)), by = tempid]
+  cids <- cids[, tdays:= 1:.N, by = cid]
+  cids <- cids[,.(tdays = base::max(tdays)), by = cid]
   # control corp needs exactly the same length of observed trading days as treated corporation
-  cids <- cids[tdays >= length(tdates)]$tempid
+  cids <- cids[tdays >= base::length(tdates)]$cid
   # (2) price changes need to be observed during period
-  cids <- data[tempid %in% cids, c("tempid", "ret")]
-  cids <- cids[ret != 0 & !is.na(ret),][,.(ret_var = .N), by = .(tempid)]
+  cids <- r_event[cid %in% cids, c("cid", "r")]
+  cids <- cids[r != 0 & !is.na(r),][,.(r_var = .N), by = .(cid)]
 
   # convert ids and dates to vectors
-  cids <- cids$tempid
+  cids <- cids$cid
 
   # filter control corp set
-  data <- data[(date %in% tdates & tempid %in% cids), c("tempid",  "ret", "date")][dates, on = "date"][, date := NULL][ , time := 1:.N, by=tempid]
-  treat_ret_DT <- treat_ret_DT[date %in% tdates,][, `:=` (tempid = 0, treatid = NULL, stata_eventdate = NULL, date = NULL)][,time := 1:.N,by=tempid]
+  r_event <- r_event[(d %in% tdates & cid %in% cids), c("cid",  "r", "date")][dates, on = "date"][, d := NULL][ , time := 1:.N, by=cid]
+  r_treat <- r_treat[date %in% tdates,][, `:=` (cid = 0, treatid = NULL, stata_eventdate = NULL, d = NULL)][,time := 1:.N,by=cid]
 
   # combine data.tables
-  data <- rbindlist(list(data, treat_ret_DT), use.names = TRUE)
+  out <- rbindlist(list(r_event, r_treat), use.names = TRUE)
 
-  return(data)
+  return(out)
 
 }
 
+#' @export
 get_event_panel <- purrr::possibly(get_event_panel, otherwise = NULL, quiet = TRUE)
