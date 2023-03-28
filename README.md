@@ -1,4 +1,4 @@
-# synthReturn
+# synthReturn <img src="man/figures/logo.png" align="right" alt="" width="95" />
 
 R package for the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2020)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to accommodate *(i)* multiple event dates and *(ii)* missing values.
 
@@ -13,10 +13,10 @@ devtools::install_github("davidkreitmeir/synthReturn")
 A synthetic match for each company $i$ in the treatment group is found by solving the following optimization problem:
 ```math
   \underset{\{ w_{j}^{i}\}_{j \in \text{Control group}}}{\arg\min} \underset{t \in \text{Estimation Window}}{\sum \left[ R_{it} - \underset{j \in \text{Control group}}{\sum w_{j}^{i}R_{jt}} \right]^{2}} \quad
-  \text{s.t.} \quad  \underset{j \in \text{Control group}}{ \sum w_{j}^{i} = 1} 
+  \text{s.t.} \quad  \underset{j \in \text{Control group}}{ \sum w_{j}^{i} = 1}
   \quad \text{and} \quad w_{j}^{i} \geq 0
 ```
-where $R_{it}$ and $R_{jt}$ is the daily return on date $t$ for the treatment, respectively control company and $\{w_{j}^{i*}\}$ is the weight for control firm $j$ in the optimal weighting for firm $i$. 
+where $R_{it}$ and $R_{jt}$ is the daily return on date $t$ for the treatment, respectively control company and $\{w_{j}^{i*}\}$ is the weight for control firm $j$ in the optimal weighting for firm $i$.
 
 The aforementioned optimization problem boils down to a *quadratic programming problem*, as the objective function is quadratic and the two constraints are linear. I.e. the problem can be written as:
 ```math
