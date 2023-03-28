@@ -97,5 +97,4 @@ ar_comp <- function(data){
 
 }
 
-#' @export
 ar_comp <- purrr::possibly(ar_comp, otherwise = NULL, quiet = TRUE)

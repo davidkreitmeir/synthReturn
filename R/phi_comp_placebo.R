@@ -18,7 +18,6 @@ NULL
 #' @importFrom purrr possibly
 #' @importFrom purrr map
 
-#
 phi_comp_placebo <- function(pids, r_control, estwind){
 
   # get key information on placebo treatment group

@@ -2,7 +2,7 @@ NULL
 ###################################################################################
 #' Function that
 #'
-#' @description \code{synthReturn} computes the treatment effect \eqn{\hat{\phi}} using the synthetic
+#' @description \code{synthReturn} computes the treatment effect \eqn{\phi} using the synthetic
 #'  matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 #'  accommodate multiple event dates and missing values.
 #'
@@ -31,16 +31,17 @@ NULL
 #' @return A data.table containing the following components:
 #' \item{tau}{Relative time to event day (\eqn{\tau} = 0).}
 #' \item{phi}{The treatment effect estimate for the period \eqn{[0,k]} during the event window.}
-#' \item{ci_90_lower}{90\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
-#' \item{ci_90_upper}{90\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
-#' \item{ci_95_lower}{95\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
-#' \item{ci_95_upper}{95\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
-#' \item{ci_99_lower}{99\% confidence interval lower bound (not relevant if placebo = \code{FALSE}).}
-#' \item{ci_99_upper}{99\% confidence interval upper bound (not relevant if placebo = \code{FALSE}).}
-#' \item{n_placebo}{Number of placebo treatment effects.}
+#' \item{ci_90_lower}{90% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
+#' \item{ci_90_upper}{90% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
+#' \item{ci_95_lower}{95% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
+#' \item{ci_95_upper}{95% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
+#' \item{ci_99_lower}{99% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
+#' \item{ci_99_upper}{99% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
+#' \item{n_placebo}{Number of placebo treatment effects; not relevant if placebo = \code{FALSE}.}
 #'
 #' @importFrom future plan
 #' @importFrom furrr future_map
+#' @importFrom purrr map
 #' @import data.table
 #' @importFrom infer rep_slice_sample
 #'
@@ -123,7 +124,7 @@ synthReturn <- function(
     # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
     # for each (unique) event date.
     pids <- data.table::split(ed_placebo, by = "ed")
-    pids <- furrr::future_map(
+    pids <- purrr::map(
       pids,
       infer::rep_slice_sample,
       n = n,

@@ -51,25 +51,29 @@ ret_treat <- data.table::rbindlist(
   list(
     # 1st company x event panel
     data.table::rbindlist(
-      map(
+      purrr::map(
         rep(start_dates[1], n),
         sim_treat_returns,
         estwindlen = estwindlen,
         eventwindlen = eventwindlen
-      )
+      ),
+      idcol = "tempid"
     ),
     # 2nd company x event panel
     data.table::rbindlist(
-      map(
+      purrr::map(
         rep(start_dates[2], n),
         sim_treat_returns,
         estwindlen = estwindlen,
         eventwindlen = eventwindlen
-      )
+      ),
+      idcol = "tempid"
     )
-  ),
-  idcol = "treatid"
+  )
 )
+
+# create unique event x firm id
+ret_treat <- ret_treat[, treatid:=.GRP, by= .(tempid,eventdate)][, tempid := NULL]
 
 # get time span of entire sample period
 sampleperiod <- ret_treat[, .(min_date = min(date), max_date = max(date))]

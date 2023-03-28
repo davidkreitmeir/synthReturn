@@ -63,6 +63,5 @@ get_treat_set <- function(
 }
 
 # make sure code does not break because of an error during calculation of a specific corporation
-#' @export
 get_treat_set =  purrr::possibly(get_treat_set, otherwise = NULL, quiet = TRUE)
 

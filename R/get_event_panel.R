@@ -58,5 +58,4 @@ get_event_panel <- function(r_treat, r_control){
 
 }
 
-#' @export
 get_event_panel <- purrr::possibly(get_event_panel, otherwise = NULL, quiet = TRUE)

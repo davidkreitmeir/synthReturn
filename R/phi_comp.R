@@ -18,7 +18,6 @@ NULL
 #' @importFrom furrr future_map
 
 
-#' @export
 phi_comp <- function(r_treat, r_control, estwind){
 
   r_treat <- data.table::split(r_treat, by = "tid")

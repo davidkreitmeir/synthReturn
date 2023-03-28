@@ -20,4 +20,6 @@
 #'   NA if firm in treatment group.}
 #
 #' }
-"sim_ret"
+"ret_one_evdate"
+"ret_two_evdates_na"
+"ret_two_evdates"
