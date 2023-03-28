@@ -1,4 +1,4 @@
-# synthReturn <img src="man/figures/logo.png" align="right" alt="" width="95" />
+# synthReturn <img src="inst/figures/synthRetrun.png" align="right" alt="" width="95" />
 
 R package for the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2020)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to accommodate *(i)* multiple event dates and *(ii)* missing values.
 
