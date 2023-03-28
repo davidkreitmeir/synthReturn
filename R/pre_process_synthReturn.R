@@ -7,6 +7,8 @@
 #' @importFrom furrr future_map
 #' @importFrom lubridate is.Date
 #' @import data.table
+#' @importFrom data.table .N
+#' @importFrom data.table ':='
 #'
 pre_process_synthReturn <- function(
   data,
@@ -140,8 +142,8 @@ pre_process_synthReturn <- function(
     colnames(DT)[colnames(DT) == cidname] <- "cid"
 
     # convert data into 2 DTs: r_treat & r_control
-    r_treat <- DT[!is.na(tid), c("tid", "d", "ed", "r")]
-    r_control <- DT[!is.na(cid), c("cid", "d", "r")]
+    r_treat <- DT[!is.na(DT$tid), c("tid", "d", "ed", "r")]
+    r_control <- DT[!is.na(DT$cid), c("cid", "d", "r")]
 
     # sort data with respect to id and time
     r_treat <- data.table::setorder(r_treat, tid, d)
@@ -151,7 +153,7 @@ pre_process_synthReturn <- function(
 
   # make sure dates are of format date
   if (!(lubridate::is.Date(r_treat[, d])) | !(lubridate::is.Date(r_control[, d]))) {
-    stop("data[, dname] must be of format dname. Please convert it.")
+    stop("data[, dname] must be of format date. Please convert it.")
 
   }
 
@@ -232,12 +234,11 @@ pre_process_synthReturn <- function(
     eventobs_min = base::floor(eventobs_min*eventwindlen)
   }
 
-
   #-----------------------------------------------------------------------------
   # setup data in required format
 
   # get all event dates
-  eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
+  eds <- base::unique(r_treat[,(.SD[1]), by = "tid"]$ed)
 
   # create event panels for treatment group
   r_treat <- furrr::future_map(
@@ -247,7 +248,7 @@ pre_process_synthReturn <- function(
     estwind = estwind,
     eventwind = eventwind,
     estobs_min = estobs_min,
-    eventtobs_min = eventobs_min
+    eventobs_min = eventobs_min
   )
 
   r_treat <- data.table::rbindlist(r_treat)
@@ -260,17 +261,17 @@ pre_process_synthReturn <- function(
     estwind = estwind,
     eventwind = eventwind,
     estobs_min = estobs_min,
-    eventtobs_min = eventobs_min
+    eventobs_min = eventobs_min
   )
 
   r_control <- data.table::rbindlist(r_control)
 
   # warning message that there are missing values in treatment group
-  if( (base::nrow(r_treat[,.(sum(is.na(ret)))]) > 0)){
+  if( (base::nrow(r_treat[,.(sum(is.na(r)))]) > 0)){
     warning("Treatment group panel contains missing values.")
   }
   # warning message that there are missing values in panel
-  if( (base::nrow(r_control[,.(sum(is.na(ret)))]) > 0)){
+  if( (base::nrow(r_control[,.(sum(is.na(r)))]) > 0)){
     warning("Control group panel(s) contain missing values. Firms with missing values on trading days of treated firm are dropped from control group.")
   }
 

@@ -21,7 +21,7 @@ NULL
 #'  \item{r}{Stock return.}
 #'  \item{estwind}{Indicator variable for estimation window. Equal to 1 if trading day during estimation window,
 #'  and 0 otherwise.}
-#'  \item{estwind}{Indicator variable for event window. Equal to 1 if trading day during event window,
+#'  \item{eventobs_min}{Indicator variable for event window. Equal to 1 if trading day during event window,
 #'  and 0 otherwise.}
 #'
 #' @import data.table
