@@ -1,4 +1,4 @@
-# Create hexagon sticker for `synthReturn` package
+# Create hexagon sticker for `synthReturn` package with the awesome "hexSticker" library
 
 # synthetic control example data
 sticker_data <- tibble(
