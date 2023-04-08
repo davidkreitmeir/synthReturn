@@ -15,8 +15,9 @@ NULL
 #'  \item{phi}{(Placebo) treatment effect.}
 #'
 #' @import data.table
+#' @importFrom data.table .N
+#' @importFrom data.table ':='
 #' @importFrom purrr possibly
-#' @importFrom purrr map
 
 phi_comp_placebo <- function(pids, r_control, estwind){
 
@@ -37,7 +38,7 @@ phi_comp_placebo <- function(pids, r_control, estwind){
   r_control <- r_control[(cid %notin% tids &  ed == edate),]
 
   # obtain event panel for each treatment group
-  event_panels <- purrr::map(
+  event_panels <- base::lapply(
     r_treat_placebo,
     get_event_panel,
     r_control = r_control
@@ -45,7 +46,7 @@ phi_comp_placebo <- function(pids, r_control, estwind){
 
 
   # compute abnormal returns (ARs) for each placebo treatment group firm
-  ARs <- purrr::map(
+  ARs <- base::lapply(
     event_panels,
     ar_comp
   )

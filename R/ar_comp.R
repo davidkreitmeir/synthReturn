@@ -13,6 +13,8 @@ NULL
 #'  \item{sigma}{"Goodness" of fit measure.}
 #'
 #' @import data.table
+#' @importFrom data.table .N
+#' @importFrom data.table ':='
 #' @importFrom purrr possibly
 #' @importFrom quadprog solve.QP
 #' @importFrom corpcor is.positive.definite
@@ -26,7 +28,7 @@ ar_comp <- function(data){
   # Pre-process data
 
   # Note: treated corporation has cid == 0
-  data <- data.table::setorder(data, tid, t)
+  data <- data.table::setorder(data, cid, t)
   # Grab "effective" length of windows
   estwindlen <- base::nrow(data[cid == 0 & estwind,])
   # eventwindlen <- base::nrow(data[cid == 0 & eventwind,])

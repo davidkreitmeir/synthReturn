@@ -17,9 +17,7 @@ synthReturn(
   eventobs_min = 1,
   placebo = TRUE,
   ndraws = 25,
-  ngroup = 2,
-  parallel = FALSE,
-  ncore = 1
+  ngroup = 2
 )
 }
 \arguments{
@@ -46,12 +44,6 @@ integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no mi
 
 \item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
-
-\item{parallel}{If analysis should be run in parallel with \code{furrr}. Default is \code{FALSE} (i.e. analysis is run
-sequentially)}
-
-\item{ncore}{Number of cores used to run analysis (not relevant if parallel = \code{FALSE}).
-Default is 1 (i.e. run sequentially).}
 }
 \value{
 A data.table containing the following components:
@@ -63,7 +55,7 @@ A data.table containing the following components:
 \item{ci_95_upper}{95\% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
 \item{ci_99_lower}{99\% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
 \item{ci_99_upper}{99\% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-\item{n_placebo}{Number of placebo treatment effects.}
+\item{n_placebo}{Number of placebo treatment effects; not relevant if placebo = \code{FALSE}.}
 }
 \description{
 \code{synthReturn} computes the treatment effect \eqn{\phi} using the synthetic

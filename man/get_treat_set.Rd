@@ -7,7 +7,7 @@
 get_treat_set(...)
 }
 \arguments{
-\item{ed}{date of event.}
+\item{eventdate}{date of event.}
 
 \item{data}{The name of the data.table that contains the data.}
 
@@ -26,7 +26,7 @@ A data.table containing the following columns:
 \item{r}{Stock return.}
 \item{estwind}{Indicator variable for estimation window. Equal to 1 if trading day during estimation window,
 and 0 otherwise.}
-\item{estwind}{Indicator variable for event window. Equal to 1 if trading day during event window,
+\item{eventobs_min}{Indicator variable for event window. Equal to 1 if trading day during event window,
 and 0 otherwise.}
 }
 \description{

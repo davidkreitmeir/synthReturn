@@ -4,20 +4,17 @@
 \alias{phi_comp}
 \title{Function that computes treatment effect for treatment group.}
 \usage{
-phi_comp(r_treat, r_control, estwind)
+phi_comp(r_treat, r_control)
 }
 \arguments{
 \item{r_control}{Returns of control group (includes placebo treatment group returns.}
 
-\item{estwind}{Argument to set estimation window period in relative time to event,
-i.e. \code{c(estwind_start, estwind_end)}}
-
 \item{r_treat_placebo}{Returns of placebo treatment group.}
 }
 \value{
-A data.table containing the following columns:
-\item{tau}{Relative time to event date.}
-\item{phi}{Abnormal return.}
+A list of 2 data.tables, with the main data.table \code{phi} containing the following columns:
+\item{tau}{Relative time to event day.}
+\item{phi}{Average treatment effect.}
 }
 \description{
 \code{phi_comp} Wrapper function to compute \eqn{\phi} for

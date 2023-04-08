@@ -7,7 +7,7 @@
 get_control_set(...)
 }
 \arguments{
-\item{ed}{date of event.}
+\item{eventdate}{date of event.}
 
 \item{data}{The name of the data.table that contains the data.}
 

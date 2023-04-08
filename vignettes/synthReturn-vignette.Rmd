@@ -15,63 +15,110 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
+rm(list=ls(all.names = TRUE))
+devtools::load_all()
 library(synthReturn)
 ```
 
 Looking under the hood
 
-```{r test reshaping of data}
 
-  # set function arguments
-  estwind = c(-100,-1)
-  eventwind = c(0,5)
-  estobs_min = 1
-  eventobs_min = 1
+```{r test preprocessing}
 
-  DT <- ret_one_evdate
-  # Return variable will be denoted by r
-  colnames(DT)[colnames(DT) == "ret"] <- "r"
-  # date variable will be denoted by d
-  colnames(DT)[colnames(DT) == "date"] <- "d"
-  # event date variable will be denoted by ed
-  colnames(DT)[colnames(DT) == "eventdate"] <- "ed"
-  # treatment group identifier will be denoted by tid
-  colnames(DT)[colnames(DT) == "treatid"] <- "tid"
-  # control group identifier will be denoted by cid
-  colnames(DT)[colnames(DT) == "controlid"] <- "cid"
+rm(list=ls(all.names = TRUE))
+devtools::load_all()
+library(synthReturn)
 
-  # convert data into 2 DTs: r_treat & r_control
-  r_treat <- DT[!is.na(tid), c("tid", "d", "ed", "r")]
-  r_control <- DT[!is.na(cid), c("cid", "d", "r")]
+dp =  pre_process_synthReturn(
+    data = ret_two_evdates,
+    tidname = "treatid",
+    cidname = "controlid",
+    rname = "ret",
+    dname = "date",
+    edname = "eventdate",
+    estwind = c(-100,-1),
+    eventwind = c(0,5),
+    estobs_min = 1,
+    eventobs_min = 1,
+    placebo = TRUE,
+    ngroup = 2,
+    ndraws = 25
+  )
 
-  # sort data with respect to id and time
-  r_treat <- data.table::setorder(r_treat, tid, d)
-  r_control <- data.table::setorder(r_control, cid, d)
+r_treat = dp[[1]]
+r_control = dp[[2]]
 
-  # get all event dates
+res <- phi_comp(
+  r_treat = r_treat,
+  r_control = r_control
+)
+
+#-----------------------------------------------------------------------------
+# Create confidence intervals from placebo treatment group treatment effects
+placebo = FALSE
+
+if(placebo == TRUE){
+
+  # unique event dates
   eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
+  # number of treated corporations
+  n <- base::length(base::unique(r_treat[, .SD[1], by = tid]$tid))
 
-  #-----------------------------------------------------------------------------
-  # Check pre-process function
+  ed_placebo <- r_control[, .SD[1], by = c("cid", "ed")][, `:=` (ret = NULL, date = NULL)]
+  ed_placebo <- ed_placebo[, ntotal := 1:.N, by = ed]
+  # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+  ngroup_min <- base::floor(ngroup*n)
+  ed_placebo <- ed_placebo[, .(ntotal = base::max(ntotal)), by = ed][ntotal >= ngroup_min, "ed"]$ed
+  # final set of placebo event dates (and potentially placebo treated firms)
+  ed_placebo <- ed_placebo[ed %in% ed_placebo,  c("cid", "ed")]
 
-  test <- purrr::map(
-      eds,
-      get_treat_set,
-      data = r_treat,
-      estwind = estwind,
-      eventwind = eventwind,
-      estobs_min = estobs_min,
-      eventobs_min = eventobs_min
+  # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
+  # for each (unique) event date.
+  pids <- data.table::split(ed_placebo, by = "ed")
+  pids <- base::lapply(
+    pids,
+    infer::rep_slice_sample,
+    n = n,
+    replace = TRUE,
+    reps =  ndraws
     )
-  
-    test <- purrr::map(
-      eds,
-      get_control_set,
-      data = r_control,
-      estwind = estwind,
-      eventwind = eventwind,
-      estobs_min = estobs_min,
-      eventobs_min = eventobs_min
-    )
+  pids <- data.table::rbindlist(pids, use.names = TRUE, idcol="edid")
+  pids <- convert_DT(pids)
+  pids <- pids[, pid := .GRP, by = .(edid, replicate)]
+  pids <- pids[, `:=` (edid = NULL, replicate = NULL)]
+  pids <- split(pids, by = "pid")
+
+  # compute treatment effect for all placebo treatment groups
+  phi_placebo <- base::lapply(
+    pids,
+    phi_comp_placebo,
+    r_control = r_control,
+    estwind = estwind
+  )
+
+  phi_placebo <- data.table::rbindlist(phi_placebo, use.names = TRUE, idcol="pid")
+  # get number of placebo treatment effects
+  n_placebo <- base::length(base::unique(phi_placebo[, .SD[1], by = pid]$pid))
+
+  # calculate CI intervals
+  phi_CI90 = results[, .(ci_90_lower = quantile(phi_placebo, probs = 0.05), ci_90_upper = quantile(phi_hat, probs = 0.95)), by = "tau"]
+  phi_CI95 = results[, .(ci_95_lower = quantile(phi_placebo, probs = 0.025), ci_95_upper = quantile(phi_hat, probs = 0.975)), by = "tau"]
+  phi_CI99 = results[, .(ci_99_lower = quantile(phi_hat, probs = 0.005), ci_99_upper = quantile(phi_hat, probs = 0.995)), by = "tau"]
+
+  # create output table
+  restab <- res["phi"]$phi
+  restab <- tab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
+
+  # return all information of interest
+  out = list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
+
+
+} else {
+  # just return treatment effects without CIs
+  restab <- res["phi"]$phi
+    out <- list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
+
+}
+
 
 ```

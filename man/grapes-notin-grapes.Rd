@@ -9,8 +9,3 @@
 \description{
 Helper Functions used throughout package
 }
-\section{Functions}{
-\itemize{
-\item \code{... \%notin\% NA}: of \code{\%in\%}.
-
-}}

@@ -16,43 +16,47 @@ NULL
 #' integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #'
 #' @return A data.table containing the following columns:
-#'  \item{cid}{Unique (event \eqn{\times}) control firm identifier.}
-#'  \item{d}{Trading Date.}
-#'  \item{ed}{Event date}
+#'  \item{cid}{Unique (event \eqn{\times}) control firm identifier.  Treated firm get the unassigned cid of 0.}
+#'  \item{t}{Time variable (consecutive).}
+#'  \item{estwind}{Estimation window indicator.}
+#'  \item{eventwind}{window indicator.}
 #'  \item{r}{Stock return.}
 #'
 #' @import data.table
 #' @importFrom purrr possibly
 
-get_event_panel <- function(r_treat, r_control){
+get_event_panel <- function(dt_treat, dt_control){
 
   # get set of all "potential" control companies for event date
-  edate <- r_treat[, .SD[1], by = ed]$ed
-  r_event <- r_control[ed == edate,]
+  edate <- dt_treat[, .SD[1], by = ed]$ed
+  r_event <- dt_control[ed == edate,]
 
   # get dates when treated corporation is traded
-  dates <- r_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
+  dates <- dt_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
   tdates <- dates$d
   # select control companies
-  cids <- r_event[!is.na(r) & d %in% tdates, c("cid", "date", "r")]
+  cids <- r_event[!is.na(r) & d %in% tdates, c("cid", "d", "r")]
   # (1) No missing trading days on days treated corporation is traded
   cids <- cids[, tdays:= 1:.N, by = cid]
   cids <- cids[,.(tdays = base::max(tdays)), by = cid]
   # control corp needs exactly the same length of observed trading days as treated corporation
   cids <- cids[tdays >= base::length(tdates)]$cid
-  # (2) price changes need to be observed during period
+  # (2) price changes need to be observed during sample period
   cids <- r_event[cid %in% cids, c("cid", "r")]
   cids <- cids[r != 0 & !is.na(r),][,.(r_var = .N), by = .(cid)]
 
   # convert ids and dates to vectors
   cids <- cids$cid
-
   # filter control corp set
-  r_event <- r_event[(d %in% tdates & cid %in% cids), c("cid",  "r", "date")][dates, on = "date"][, d := NULL][ , time := 1:.N, by=cid]
-  r_treat <- r_treat[date %in% tdates,][, `:=` (cid = 0, treatid = NULL, stata_eventdate = NULL, d = NULL)][,time := 1:.N,by=cid]
+  r_event <- r_event[(d %in% tdates & cid %in% cids), c("cid",  "r", "d")]
+  r_event <-  r_event[dates, on = "d"]
+  r_event <- r_event[, d := NULL][ , t := 1:.N, by=cid]
+  # give treated firm the unique and not assigned cid = 0
+  dt_treat <- dt_treat[d %in% tdates,][, `:=` (cid = 0, tid = NULL, ed = NULL, d = NULL)][,t := 1:.N,by=cid]
 
   # combine data.tables
-  out <- rbindlist(list(r_event, r_treat), use.names = TRUE)
+  out <- rbindlist(list(r_event, dt_treat), use.names = TRUE)
+  out <- data.table::setorder(out, cid, t)
 
   return(out)
 

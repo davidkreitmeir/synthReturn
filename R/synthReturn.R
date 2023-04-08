@@ -23,10 +23,6 @@ NULL
 #' @param ndraws Number of randomly drawn placebo treatment group at each (unique) event date. Has to be larger than \eqn{1}.
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
-#' @param parallel If analysis should be run in parallel with `furrr`. Default is `FALSE` (i.e. analysis is run
-#'  sequentially)
-#' @param ncore Number of cores used to run analysis (not relevant if parallel = \code{FALSE}).
-#' Default is 1 (i.e. run sequentially).
 #'
 #' @return A data.table containing the following components:
 #' \item{tau}{Relative time to event day (\eqn{\tau} = 0).}
@@ -39,10 +35,9 @@ NULL
 #' \item{ci_99_upper}{99% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
 #' \item{n_placebo}{Number of placebo treatment effects; not relevant if placebo = \code{FALSE}.}
 #'
-#' @importFrom future plan
-#' @importFrom furrr future_map
-#' @importFrom purrr map
 #' @import data.table
+#' @importFrom data.table .N
+#' @importFrom data.table ':='
 #' @importFrom infer rep_slice_sample
 #'
 #' @export
@@ -59,17 +54,9 @@ synthReturn <- function(
   eventobs_min = 1,
   placebo = TRUE,
   ndraws = 25,
-  ngroup = 2,
-  parallel = FALSE,
-  ncore = 1
+  ngroup = 2
   ){
 
-  if(parallel == TRUE){
-    if(ncore == 1){
-      warning("Parallelization is not used. Set ncore > 1 to use more than 1 worker.")
-    }
-    future::plan(multisession, workers = ncore)
-  }
 
   #-----------------------------------------------------------------------------
   # Pre-process data
@@ -98,7 +85,7 @@ synthReturn <- function(
   r_control = dp[[2]]
 
   # Compute treatment effect `phi` (for "actual" treatment group)
-  phi <- phi_comp(
+  res <- phi_comp(
     r_treat = r_treat,
     r_control = r_control
   )
@@ -124,7 +111,7 @@ synthReturn <- function(
     # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
     # for each (unique) event date.
     pids <- data.table::split(ed_placebo, by = "ed")
-    pids <- purrr::map(
+    pids <- base::lapply(
       pids,
       infer::rep_slice_sample,
       n = n,
@@ -138,7 +125,7 @@ synthReturn <- function(
     pids <- split(pids, by = "pid")
 
     # compute treatment effect for all placebo treatment groups
-    phi_placebo <- furrr::future_map(
+    phi_placebo <- base::lapply(
       pids,
       phi_comp_placebo,
       r_control = r_control,
@@ -154,14 +141,27 @@ synthReturn <- function(
     phi_CI95 = results[, .(ci_95_lower = quantile(phi_placebo, probs = 0.025), ci_95_upper = quantile(phi_hat, probs = 0.975)), by = "tau"]
     phi_CI99 = results[, .(ci_99_lower = quantile(phi_hat, probs = 0.005), ci_99_upper = quantile(phi_hat, probs = 0.995)), by = "tau"]
 
-    out = phi[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)][, n_placebo := n_placebo]
+    # create output table
+    restab <- res["phi"]
+    restab <- tab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
 
-    # return "actual" treatment effects with CIs
+    # return all information of interest
+    out = list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
+
+    # Define a new class
+    class(out) <- "synthReturn"
+
     return(out)
 
   } else {
     # just return treatment effects without CIs
-    return(phi)
+    restab <- res["phi"]
+    out <- list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
+
+    # Define a new class
+    class(out) <- "synthReturn"
+
+    return(out)
   }
 
 }
