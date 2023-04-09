@@ -9,7 +9,7 @@ phi_comp_placebo(...)
 \arguments{
 \item{r_treat_placebo}{Returns of placebo treatment group.}
 
-\item{r_control}{Returns of control group (includes placebo treatment group returns.}
+\item{dt_control}{Returns of control group (includes placebo treatment group returns.}
 
 \item{estwind}{Argument to set estimation window period in relative time to event,
 i.e. \code{c(estwind_start, estwind_end)}}

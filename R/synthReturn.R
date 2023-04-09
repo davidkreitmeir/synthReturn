@@ -2,7 +2,7 @@ NULL
 ###################################################################################
 #' Function that
 #'
-#' @description \code{synthReturn} computes the treatment effect \eqn{\phi} using the synthetic
+#' @description \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
 #'  matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 #'  accommodate multiple event dates and missing values.
 #'
@@ -24,16 +24,11 @@ NULL
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
 #'
-#' @return A data.table containing the following components:
-#' \item{tau}{Relative time to event day (\eqn{\tau} = 0).}
-#' \item{phi}{The treatment effect estimate for the period \eqn{[0,k]} during the event window.}
-#' \item{ci_90_lower}{90% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-#' \item{ci_90_upper}{90% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-#' \item{ci_95_lower}{95% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-#' \item{ci_95_upper}{95% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-#' \item{ci_99_lower}{99% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-#' \item{ci_99_upper}{99% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-#' \item{n_placebo}{Number of placebo treatment effects; not relevant if placebo = \code{FALSE}.}
+#' @return A list containing the following components:
+#' \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if `placebo == TRUE`) the 90%, 95% and 99% confidence intervals.}
+#' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group}
+#' \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
+#' \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws)}
 #'
 #' @import data.table
 #' @importFrom data.table .N
@@ -53,8 +48,8 @@ synthReturn <- function(
   estobs_min = 1,
   eventobs_min = 1,
   placebo = TRUE,
-  ndraws = 25,
-  ngroup = 2
+  ngroup = 2,
+  ndraws = 25
   ){
 
 
@@ -72,10 +67,8 @@ synthReturn <- function(
     estobs_min = estobs_min,
     eventobs_min = eventobs_min,
     placebo = placebo,
-    ndraws = ndraws,
     ngroup = ngroup,
-    parallel = parallel,
-    ncore = ncore
+    ndraws = ndraws
   )
 
   #-----------------------------------------------------------------------------
@@ -84,40 +77,41 @@ synthReturn <- function(
   r_treat = dp[[1]]
   r_control = dp[[2]]
 
-  # Compute treatment effect `phi` (for "actual" treatment group)
+  # Compute average treatment effect `phi` (for "actual" treatment group)
   res <- phi_comp(
     r_treat = r_treat,
     r_control = r_control
   )
 
   #-----------------------------------------------------------------------------
-  # Create confidence intervals from placebo treatment group treatment effects
+  # Create confidence intervals from average treatment effects of placebo treatment group
 
   if(placebo == TRUE){
 
     # unique event dates
     eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
     # number of treated corporations
-    n <- base::length(base::unique(r_treat[, .SD[1], by = tid]$tid))
+    n_treat <- base::length(base::unique(r_treat[, .SD[1], by = tid]$tid))
 
-    ed_placebo <- r_control[, .SD[1], by = c("cid", "ed")][, `:=` (ret = NULL, date = NULL)]
-    ed_placebo <- ed_placebo[, ntotal := 1:.N, by = ed]
+    cid_placebo <- r_control[, .SD[1], by = c("cid", "ed")][, `:=` (r = NULL, d = NULL)]
+    ed_placebo <- cid_placebo[, ntotal := 1:.N, by = ed]
     # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
-    ngroup_min <- base::floor(ngroup*n)
+    ngroup_min <- base::floor(ngroup*n_treat)
     ed_placebo <- ed_placebo[, .(ntotal = base::max(ntotal)), by = ed][ntotal >= ngroup_min, "ed"]$ed
     # final set of placebo event dates (and potentially placebo treated firms)
-    ed_placebo <- ed_placebo[ed %in% ed_placebo,  c("cid", "ed")]
+    cid_placebo <- cid_placebo[ed %in% ed_placebo,  c("cid", "ed")]
 
     # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
     # for each (unique) event date.
-    pids <- data.table::split(ed_placebo, by = "ed")
+    pids <- data.table:::split.data.table(cid_placebo, by = "ed")
     pids <- base::lapply(
       pids,
       infer::rep_slice_sample,
-      n = n,
+      n = n_treat,
       replace = TRUE,
       reps =  ndraws
-      )
+    )
+    # generate unique placebo id (pid = ndraws x number_of_event_dates)
     pids <- data.table::rbindlist(pids, use.names = TRUE, idcol="edid")
     pids <- convert_DT(pids)
     pids <- pids[, pid := .GRP, by = .(edid, replicate)]
@@ -128,7 +122,7 @@ synthReturn <- function(
     phi_placebo <- base::lapply(
       pids,
       phi_comp_placebo,
-      r_control = r_control,
+      dt_control = r_control,
       estwind = estwind
     )
 
@@ -137,32 +131,45 @@ synthReturn <- function(
     n_placebo <- base::length(base::unique(phi_placebo[, .SD[1], by = pid]$pid))
 
     # calculate CI intervals
-    phi_CI90 = results[, .(ci_90_lower = quantile(phi_placebo, probs = 0.05), ci_90_upper = quantile(phi_hat, probs = 0.95)), by = "tau"]
-    phi_CI95 = results[, .(ci_95_lower = quantile(phi_placebo, probs = 0.025), ci_95_upper = quantile(phi_hat, probs = 0.975)), by = "tau"]
-    phi_CI99 = results[, .(ci_99_lower = quantile(phi_hat, probs = 0.005), ci_99_upper = quantile(phi_hat, probs = 0.995)), by = "tau"]
+    phi_CI90 = phi_placebo[, .(ci_90_lower = quantile(phi, probs = 0.05), ci_90_upper = quantile(phi, probs = 0.95)), by = tau]
+    phi_CI95 = phi_placebo[, .(ci_95_lower = quantile(phi, probs = 0.025), ci_95_upper = quantile(phi, probs = 0.975)), by = tau]
+    phi_CI99 = phi_placebo[, .(ci_99_lower = quantile(phi, probs = 0.005), ci_99_upper = quantile(phi, probs = 0.995)), by = tau]
 
-    # create output table
-    restab <- res["phi"]
-    restab <- tab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
+    # create "output" table
+    restab <- res["phi"]$phi
+    restab <- restab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
 
     # return all information of interest
-    out = list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
+    out = list(ate = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
 
-    # Define a new class
-    class(out) <- "synthReturn"
-
-    return(out)
 
   } else {
-    # just return treatment effects without CIs
-    restab <- res["phi"]
-    out <- list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
 
-    # Define a new class
-    class(out) <- "synthReturn"
+    # return all information of interest (no CIs)
+    restab <- res["phi"]$phi
+    out <- list(ate = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
 
-    return(out)
   }
+
+  # record the call
+  call.param <- match.call()
+  # Record all arguments used in the function
+  argu <- mget(names(formals()), sys.frame(sys.nframe()))
+  argu <- list(
+    estwind = argu$estwind,
+    eventwind = argu$eventwind,
+    estobs_min = argu$estobs_min,
+    eventobs_min = argu$eventobs_min,
+    ngroup = argu$ngroup,
+    ndraws = argu$ndraws
+  )
+
+  out <- base::append(out, list(arg = argu))
+
+  # Define a new class
+  class(out) <- "synthReturn"
+
+  return(out)
 
 }
 

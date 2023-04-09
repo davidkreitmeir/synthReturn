@@ -16,8 +16,8 @@ synthReturn(
   estobs_min = 1,
   eventobs_min = 1,
   placebo = TRUE,
-  ndraws = 25,
-  ngroup = 2
+  ngroup = 2,
+  ndraws = 25
 )
 }
 \arguments{
@@ -40,25 +40,20 @@ integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no mi
 
 \item{placebo}{Whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}}
 
-\item{ndraws}{Number of randomly drawn placebo treatment group at each (unique) event date. Has to be larger than \eqn{1}.}
-
 \item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
+
+\item{ndraws}{Number of randomly drawn placebo treatment group at each (unique) event date. Has to be larger than \eqn{1}.}
 }
 \value{
-A data.table containing the following components:
-\item{tau}{Relative time to event day (\eqn{\tau} = 0).}
-\item{phi}{The treatment effect estimate for the period \eqn{[0,k]} during the event window.}
-\item{ci_90_lower}{90\% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-\item{ci_90_upper}{90\% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-\item{ci_95_lower}{95\% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-\item{ci_95_upper}{95\% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-\item{ci_99_lower}{99\% confidence interval lower bound; not relevant if placebo = \code{FALSE}.}
-\item{ci_99_upper}{99\% confidence interval upper bound; not relevant if placebo = \code{FALSE}.}
-\item{n_placebo}{Number of placebo treatment effects; not relevant if placebo = \code{FALSE}.}
+A list containing the following components:
+\item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if \code{placebo == TRUE}) the 90\%, 95\% and 99\% confidence intervals.}
+\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group}
+\item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
+\item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws)}
 }
 \description{
-\code{synthReturn} computes the treatment effect \eqn{\phi} using the synthetic
+\code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
 matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 accommodate multiple event dates and missing values.
 }

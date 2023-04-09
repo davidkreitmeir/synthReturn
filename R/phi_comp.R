@@ -27,8 +27,6 @@ phi_comp <- function(r_treat, r_control){
     dt_control = r_control
   )
 
-  View(event_panels)
-
   # compute abnormal returns (ARs) for each placebo treatment group firm
   ARs <- base::lapply(
     event_panels,

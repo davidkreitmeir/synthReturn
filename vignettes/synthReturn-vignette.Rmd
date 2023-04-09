@@ -18,19 +18,9 @@ knitr::opts_chunk$set(
 rm(list=ls(all.names = TRUE))
 devtools::load_all()
 library(synthReturn)
-```
 
-Looking under the hood
-
-
-```{r test preprocessing}
-
-rm(list=ls(all.names = TRUE))
-devtools::load_all()
-library(synthReturn)
-
-dp =  pre_process_synthReturn(
-    data = ret_two_evdates,
+results <- synthReturn(
+  data = ret_two_evdates,
     tidname = "treatid",
     cidname = "controlid",
     rname = "ret",
@@ -42,83 +32,7 @@ dp =  pre_process_synthReturn(
     eventobs_min = 1,
     placebo = TRUE,
     ngroup = 2,
-    ndraws = 25
-  )
-
-r_treat = dp[[1]]
-r_control = dp[[2]]
-
-res <- phi_comp(
-  r_treat = r_treat,
-  r_control = r_control
+    ndraws = 10
 )
-
-#-----------------------------------------------------------------------------
-# Create confidence intervals from placebo treatment group treatment effects
-placebo = FALSE
-
-if(placebo == TRUE){
-
-  # unique event dates
-  eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
-  # number of treated corporations
-  n <- base::length(base::unique(r_treat[, .SD[1], by = tid]$tid))
-
-  ed_placebo <- r_control[, .SD[1], by = c("cid", "ed")][, `:=` (ret = NULL, date = NULL)]
-  ed_placebo <- ed_placebo[, ntotal := 1:.N, by = ed]
-  # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
-  ngroup_min <- base::floor(ngroup*n)
-  ed_placebo <- ed_placebo[, .(ntotal = base::max(ntotal)), by = ed][ntotal >= ngroup_min, "ed"]$ed
-  # final set of placebo event dates (and potentially placebo treated firms)
-  ed_placebo <- ed_placebo[ed %in% ed_placebo,  c("cid", "ed")]
-
-  # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
-  # for each (unique) event date.
-  pids <- data.table::split(ed_placebo, by = "ed")
-  pids <- base::lapply(
-    pids,
-    infer::rep_slice_sample,
-    n = n,
-    replace = TRUE,
-    reps =  ndraws
-    )
-  pids <- data.table::rbindlist(pids, use.names = TRUE, idcol="edid")
-  pids <- convert_DT(pids)
-  pids <- pids[, pid := .GRP, by = .(edid, replicate)]
-  pids <- pids[, `:=` (edid = NULL, replicate = NULL)]
-  pids <- split(pids, by = "pid")
-
-  # compute treatment effect for all placebo treatment groups
-  phi_placebo <- base::lapply(
-    pids,
-    phi_comp_placebo,
-    r_control = r_control,
-    estwind = estwind
-  )
-
-  phi_placebo <- data.table::rbindlist(phi_placebo, use.names = TRUE, idcol="pid")
-  # get number of placebo treatment effects
-  n_placebo <- base::length(base::unique(phi_placebo[, .SD[1], by = pid]$pid))
-
-  # calculate CI intervals
-  phi_CI90 = results[, .(ci_90_lower = quantile(phi_placebo, probs = 0.05), ci_90_upper = quantile(phi_hat, probs = 0.95)), by = "tau"]
-  phi_CI95 = results[, .(ci_95_lower = quantile(phi_placebo, probs = 0.025), ci_95_upper = quantile(phi_hat, probs = 0.975)), by = "tau"]
-  phi_CI99 = results[, .(ci_99_lower = quantile(phi_hat, probs = 0.005), ci_99_upper = quantile(phi_hat, probs = 0.995)), by = "tau"]
-
-  # create output table
-  restab <- res["phi"]$phi
-  restab <- tab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
-
-  # return all information of interest
-  out = list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
-
-
-} else {
-  # just return treatment effects without CIs
-  restab <- res["phi"]$phi
-    out <- list(results = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
-
-}
-
 
 ```
