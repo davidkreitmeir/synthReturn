@@ -1,11 +1,51 @@
 # synthReturn <img src="inst/figures/synthReturn.png" align="right" alt="" width="130" />
 
-R package for the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to accommodate *(i)* multiple event dates and *(ii)* missing values.
+The `synthReturn` R package implements the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to estimate the *average treatment effect* $\phi$ of an event on the stock return of all treated firms. The new version of the synthetic matching method by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) accommodates *(i)* multiple event dates and *(ii)* deals with missing values directly instead of relying on the assumption that they are equal to 0.
+
+For more details on the empirical framework, please see the [Empirical Framework Section](##empirical-framework) below.
+
+If you end up using this package, please cite our paper:
+
+* Kreitmeir, D., Lane, N., and Raschky, P. A. (2023). The value of names - Civil society, information, and governing multinationals. *SSRN WP 3751162*, https://ssrn.com/abstract=3751162
+
 
 ## Installation
 
+To install the most recent version of the `synthReturn` package from GitHub:
 ```
+# install.packages("devtools")
 devtools::install_github("davidkreitmeir/synthReturn")
+```
+
+## Short example
+
+The following is an illustration of the method for a simulated dataset with *(i)* two event-dates and *(ii)* no missing values. For details on the generation of the simulated dataset(s), please see `data-raw/sim_ret.R`.
+
+Let's first get the data ready:
+```
+library(synthReturn)
+# Load data in long format that comes in the synthReturn package
+data(ret_two_evdates)
+```
+Now, to estimate the *average treatment effect* $\phi$ with the synthetic matching method, we can use the `synthReturn` function:
+```
+results <- synthReturn(
+  data = ret_two_evdates,
+    tidname = "treatid",
+    cidname = "controlid",
+    rname = "ret",
+    dname = "date",
+    edname = "eventdate",
+    estwind = c(-100,-1),
+    eventwind = c(0,5),
+    estobs_min = 1,
+    eventobs_min = 1,
+    placebo = TRUE,
+    ngroup = 2,
+    ndraws = 10
+)
+
+results$ate
 ```
 
 ## Empirical Framework
@@ -18,7 +58,7 @@ A synthetic match for each company $i$ in the treatment group is found by solvin
 ```
 where $R_{it}$ and $R_{jt}$ is the daily return on date $t$ for the treatment, respectively control company and $\{w_{j}^{i*}\}$ is the weight for control firm $j$ in the optimal weighting for firm $i$.
 
-The aforementioned optimization problem boils down to a *quadratic programming problem*, as the objective function is quadratic and the two constraints are linear. I.e. the problem can be written as:
+The optimization problem above boils down to a *quadratic programming problem*, as the objective function is quadratic and the two constraints are linear. I.e. the problem can be written as:
 ```math
        \underset{\mathbf{w} \in \mathbb{R}^{J}}{\arg\min} f \left( \mathbf{w} \right) = \frac{1}{2} \mathbf{w}^\intercal  \mathbf{D} \mathbf{w} - \mathbf{w}^\intercal \mathbf{b} \quad
     \text{s.t.} \quad
@@ -34,11 +74,11 @@ After finding the optimal weights $w_{j}^{i*}$, the abnormal return of the treat
   \widehat{AR}_{it} = R_{it} - \underset{j \in \text{Control group}}{\sum w_{j}^{i*}R_{jt}}
 ```
 
-The cumulative abnormal return for the period $0$ to $k$ adjusted for the ``goodness'' of the synthetic match is given by:
+The cumulative abnormal return for the period $0$ to $k$ is adjusted for the "goodness" of the synthetic match for all firms in the treatment group:
 ```math
     \widehat{\phi}\left(0,k\right) = \frac{\underset{i \in \text{Treatment group}}{\sum \frac{\sum_{\tau_{1}=0}^{\tau_{2}} \widehat{AR}_{it}}{\widehat{\sigma_{i}}}}}{\underset{i \in \text{Treatment group}}{\sum \frac{1}{\widehat{\sigma_{i}}}}} \quad
     \text{where} \quad  \widehat{\sigma_{i}} = \sqrt{\frac{\underset{t \in \text{Estimation Window}}{\sum \left(\widehat{AR}_{it}\right)^{2}}}{T}},
 ```
-where $\widehat{\phi}\left(0,k\right)$ is the cumulative effect over the period $\tau_{1}=0$ to $\tau_{2}$ in the *event window*.
+where $\widehat{\phi}\left(0,k\right)$ is the cumulative effect over the period $\tau_{1}=0$ to $\tau_{2}$ in the *event window*. The treatment effect is, hence, a weighted average of each event-firm specific effect, with greater weight given to the estimated effects for which the synthetic firm tracks the return of the treated company more closely during the *estimation window*.
 
-To draw inference, one constructs confidence intervals by randomly drawing *placebo* treatment groups, as suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605). To accommodate multiple event dates `synthRetrun` draws $K \times G$ *placebo* treatment groups of size $N$, where $K$ is the number of random draws at each event date $g$ and $G$ and $N$ denote the number of *unique* event dates, respectively the actual number firms $i$ in the treatment group. The cumulative abnormal return effect is significant at the 10\%, 5\%, or 1\% level if the actual estimated treatment effect $\widehat{\phi}$ lies outside of the interval that contains the $\left[5,95\right]$, $\left[2.5,97.5\right]$, or $\left[0.5,99.5\right]$ percentiles of the *placebo* treatment effects $\widehat{\phi}_{\text{placebo}}$.
+To draw inference, confidence intervals are constructed by randomly drawing *placebo* treatment groups, as suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605). To accommodate multiple event dates `synthRetrun` draws $K \times E$ *placebo* treatment groups of size $N$, where $K$ is the number of random draws at each event date $e$, with the number of (unique) event dates equaling $E$. The cumulative abnormal return effect is significant at the 10\%, 5\%, or 1\% level if the actual estimated treatment effect $\widehat{\phi}$ lies outside of the interval that contains the $\left[5,95\right]$, $\left[2.5,97.5\right]$, or $\left[0.5,99.5\right]$ percentiles of the *placebo* treatment effects $\widehat{\phi}_{\text{placebo}}$.
