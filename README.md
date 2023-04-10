@@ -1,8 +1,8 @@
 # synthReturn <img src="inst/figures/synthReturn.png" align="right" alt="" width="130" />
 
-The `synthReturn` R package implements the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to estimate the *average treatment effect* $\phi$ of an event on the stock return of all treated firms. The new version of the synthetic matching method by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) accommodates *(i)* multiple event dates and *(ii)* deals with missing values directly instead of relying on the assumption that they are equal to 0.
+The `synthReturn` R package implements the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to estimate the *average treatment effect* $\widehat{\phi}$ of an event on the stock return of all treated firms. The new version of the synthetic matching method by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) accommodates *(i)* multiple event dates and *(ii)* deals with missing values directly instead of relying on the assumption that they are equal to 0.
 
-For more details on the empirical framework, please see the [Empirical Framework Section](##empirical-framework) below.
+For more details on the empirical framework, please see the [Empirical Framework Section](#empirical-framework) below.
 
 If you end up using this package, please cite our paper:
 
@@ -27,7 +27,7 @@ library(synthReturn)
 # Load data in long format that comes in the synthReturn package
 data(ret_two_evdates)
 ```
-Now, to estimate the *average treatment effect* $\phi$ with the synthetic matching method, we can use the `synthReturn` function:
+Now, to estimate the *average treatment effect* $\widehat{\phi}$ with the synthetic matching method, we can use the `synthReturn` function:
 ```
 results <- synthReturn(
   data = ret_two_evdates,
