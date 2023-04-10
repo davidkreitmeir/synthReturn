@@ -18,75 +18,11 @@ knitr::opts_chunk$set(
 
 First, we discuss the "standard" case with one event-date. This is equivalent to the setting of Acemoglu et al. (2016).
 
-```{r setup}
+```{r setup, include = FALSE}
 rm(list=ls(all.names = TRUE))
-devtools::load_all()
 library(synthReturn)
-
-results <- synthReturn(
-  data = ret_one_evdate,
-    tidname = "treatid",
-    cidname = "controlid",
-    rname = "ret",
-    dname = "date",
-    edname = "eventdate",
-    estwind = c(-100,-1),
-    eventwind = c(0,5),
-    estobs_min = 1,
-    eventobs_min = 1,
-    placebo = TRUE,
-    ngroup = 2,
-    ndraws = 10
-)
 
 ```
 
-
-```{r setup}
-rm(list=ls(all.names = TRUE))
-devtools::load_all()
-library(synthReturn)
-
-results <- synthReturn(
-  data = ret_two_evdates,
-    tidname = "treatid",
-    cidname = "controlid",
-    rname = "ret",
-    dname = "date",
-    edname = "eventdate",
-    estwind = c(-100,-1),
-    eventwind = c(0,5),
-    estobs_min = 1,
-    eventobs_min = 1,
-    placebo = TRUE,
-    ngroup = 2,
-    ndraws = 10
-)
-
-```
-
-
-```{r setup}
-rm(list=ls(all.names = TRUE))
-devtools::load_all()
-library(synthReturn)
-
-results <- synthReturn(
-  data = ret_two_evdates_na,
-    tidname = "treatid",
-    cidname = "controlid",
-    rname = "ret",
-    dname = "date",
-    edname = "eventdate",
-    estwind = c(-100,-1),
-    eventwind = c(0,5),
-    estobs_min = 0.9,
-    eventobs_min = 0.9,
-    placebo = TRUE,
-    ngroup = 2,
-    ndraws = 20
-)
-
-```
 
 

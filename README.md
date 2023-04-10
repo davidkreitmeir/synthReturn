@@ -17,14 +17,14 @@ To install the most recent version of the `synthReturn` package from GitHub:
 devtools::install_github("davidkreitmeir/synthReturn")
 ```
 
-## Short example
+## Short examples
 
 The following is an illustration of the method for a simulated dataset with *(i)* two event-dates and *(ii)* no missing values. For details on the generation of the simulated dataset(s), please see `data-raw/sim_ret.R`.
 
 Let's first get the data ready:
 ```
 library(synthReturn)
-# Load data in long format that comes in the synthReturn package
+# Load data in that comes in the synthReturn package
 data(ret_two_evdates)
 ```
 Now, to estimate the *average treatment effect* $\widehat{\phi}$ with the synthetic matching method, we can use the `synthReturn` function:
@@ -47,6 +47,33 @@ results <- synthReturn(
 
 results$ate
 ```
+
+For the **case that returns are missing** for firms either in the treatment or control group, you can set a threshold for the minimum of non-missing trading days during both the *estimation* (`estobs_min`) and *event window* (`eventobs_min`). In this example, I require each firm to have non-missing returns for at least 90% of trading days during both, the *estimation* and *event window* (Note that the default is no missing returns, i.e. 100%).
+
+```
+
+# Load data in that comes in the synthReturn package
+data(ret_two_evdates_na) # 5% of all returns missing
+
+results <- synthReturn(
+  data = ret_two_evdates,
+    tidname = "treatid",
+    cidname = "controlid",
+    rname = "ret",
+    dname = "date",
+    edname = "eventdate",
+    estwind = c(-100,-1),
+    eventwind = c(0,5),
+    estobs_min = 0.9,
+    eventobs_min = 0.9,
+    placebo = TRUE,
+    ngroup = 2,
+    ndraws = 10
+)
+
+results$ate
+```
+
 
 ## Empirical Framework
 

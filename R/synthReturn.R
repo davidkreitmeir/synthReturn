@@ -35,6 +35,67 @@ NULL
 #' @importFrom data.table ':='
 #' @importFrom infer rep_slice_sample
 #'
+#' @examples
+#' # -----------------------------------------------
+#' # Example with two event-dates and no missing values
+#' # -----------------------------------------------
+#'
+#' # Load data in that comes in the synthReturn package
+#' data(ret_two_evdates)
+#'
+#' # -----------------------------------------------
+#' # Implement the synthetic matching matching method
+#'
+#' synthReturn(
+#'    data = ret_two_evdates,
+#'    tidname = "treatid",
+#'    cidname = "controlid",
+#'    rname = "ret",
+#'    dname = "date",
+#'    edname = "eventdate",
+#'    estwind = c(-100,-1),
+#'    eventwind = c(0,5),
+#'    estobs_min = 1,
+#'    eventobs_min = 1,
+#'   placebo = TRUE,
+#'   ngroup = 2,
+#'   ndraws = 10
+#'   )
+#'
+#'
+#' # -----------------------------------------------
+#' # Example with two event-dates and no missing values
+#' # -----------------------------------------------
+#'
+#' # Load data in that comes in the synthReturn package
+#' data(ret_two_evdates_na)
+#'
+#' # -----------------------------------------------
+#' # Implement the synthetic matching matching method
+#'
+#' # Note: You can set a threshold for the minimum of non-missing trading days
+#' # during both the estimation (estobs_min) and event window (eventobs_min). Here, a firm
+#' # is required to have non-missing returns for at least 90% of trading days during both,
+#' # the estimation and event window (Default is 1 = 100%).
+#'
+#' synthReturn(
+#'    data = ret_two_evdates,
+#'    tidname = "treatid",
+#'    cidname = "controlid",
+#'    rname = "ret",
+#'    dname = "date",
+#'    edname = "eventdate",
+#'    estwind = c(-100,-1),
+#'    eventwind = c(0,5),
+#'    estobs_min = 0.9,
+#'    eventobs_min = 0.9,
+#'   placebo = TRUE,
+#'   ngroup = 2,
+#'   ndraws = 10
+#'   )
+#'
+
+
 #' @export
 synthReturn <- function(
   data,
