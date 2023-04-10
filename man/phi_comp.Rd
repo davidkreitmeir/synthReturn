@@ -7,14 +7,14 @@
 phi_comp(r_treat, r_control)
 }
 \arguments{
-\item{r_control}{Returns of control group (includes placebo treatment group returns.}
+\item{r_treat}{Returns of placebo treatment group.}
 
-\item{r_treat_placebo}{Returns of placebo treatment group.}
+\item{r_control}{Returns of control group (includes placebo treatment group returns.}
 }
 \value{
-A list of 2 data.tables, with the main data.table \code{phi} containing the following columns:
-\item{tau}{Relative time to event day.}
-\item{phi}{Average treatment effect.}
+A list containing the following components:
+\item{phi}{Data.frame containing the average treatment effect estimates \eqn{\phi} by relative event day \eqn{\tau}.}
+\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 }
 \description{
 \code{phi_comp} Wrapper function to compute \eqn{\phi} for

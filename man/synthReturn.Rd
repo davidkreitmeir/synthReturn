@@ -48,7 +48,7 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 \value{
 A list containing the following components:
 \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if \code{placebo == TRUE}) the 90\%, 95\% and 99\% confidence intervals.}
-\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group}
+\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
 \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws)}
 }
@@ -56,4 +56,64 @@ A list containing the following components:
 \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
 matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 accommodate multiple event dates and missing values.
+}
+\examples{
+# -----------------------------------------------
+# Example with two event-dates and no missing values
+# -----------------------------------------------
+
+# Load data in that comes in the synthReturn package
+data(ret_two_evdates)
+
+# -----------------------------------------------
+# Implement the synthetic matching matching method
+
+synthReturn(
+   data = ret_two_evdates,
+   tidname = "treatid",
+   cidname = "controlid",
+   rname = "ret",
+   dname = "date",
+   edname = "eventdate",
+   estwind = c(-100,-1),
+   eventwind = c(0,5),
+   estobs_min = 1,
+   eventobs_min = 1,
+  placebo = TRUE,
+  ngroup = 2,
+  ndraws = 10
+  )
+
+
+# -----------------------------------------------
+# Example with two event-dates and no missing values
+# -----------------------------------------------
+
+# Load data in that comes in the synthReturn package
+data(ret_two_evdates_na)
+
+# -----------------------------------------------
+# Implement the synthetic matching matching method
+
+# Note: You can set a threshold for the minimum of non-missing trading days
+# during both the estimation (estobs_min) and event window (eventobs_min). Here, a firm
+# is required to have non-missing returns for at least 90\% of trading days during both,
+# the estimation and event window (Default is 1 = 100\%).
+
+synthReturn(
+   data = ret_two_evdates,
+   tidname = "treatid",
+   cidname = "controlid",
+   rname = "ret",
+   dname = "date",
+   edname = "eventdate",
+   estwind = c(-100,-1),
+   eventwind = c(0,5),
+   estobs_min = 0.9,
+   eventobs_min = 0.9,
+  placebo = TRUE,
+  ngroup = 2,
+  ndraws = 10
+  )
+
 }
