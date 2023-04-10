@@ -5,12 +5,12 @@ NULL
 #' @description \code{phi_comp} Wrapper function to compute \eqn{\phi} for
 #' placebo treatment group.
 #'
-#' @param r_treat_placebo Returns of placebo treatment group.
+#' @param r_treat Returns of placebo treatment group.
 #' @param r_control Returns of control group (includes placebo treatment group returns.
 #'
-#' @return A list of 2 data.tables, with the main data.table `phi` containing the following columns:
-#'  \item{tau}{Relative time to event day.}
-#'  \item{phi}{Average treatment effect.}
+#' @return A list containing the following components:
+#'  \item{phi}{Data.frame containing the average treatment effect estimates \eqn{\phi} by relative event day \eqn{\tau}.}
+#'  \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 #'
 #' @import data.table
 #' @importFrom data.table .N
@@ -18,7 +18,10 @@ NULL
 
 phi_comp <- function(r_treat, r_control){
 
+  # save mapping of treatment ID (`tid`) to row ID (`rid`)
+  tid_rid_map <- r_treat[, .SD[1], by = tid][, rid := 1:.N][,c("tid", "rid")]
   r_treat <- data.table:::split.data.table(r_treat, by = "tid")
+
 
   # obtain event panel for each treatment group
   event_panels <- base::lapply(
@@ -42,7 +45,9 @@ phi_comp <- function(r_treat, r_control){
   # compute phi - equ. (7)
   phi <- ARs[, .(num = base::sum(car_wgted), den = base::sum(one_div_sigma)), by = tau]
   phi <- phi[, phi := num/den][,c("tau","phi")]
-  ARs <- ARs[, c("rid", "tau", "ar", "sigma")]
+  # map treatment IDs back to ARs
+  ARs <- ARs[tid_rid_map, on = .(rid)]
+  ARs <- ARs[, c("tid", "tau", "ar", "sigma")]
   out <- list(phi = phi, ar = ARs)
 
   return(out)
