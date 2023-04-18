@@ -13,9 +13,6 @@ Imports:
 	corpcor (>= 1.6.10),
     data.table (>= 1.14.2),
     dplyr (>= 1.0.9),
-    furrr (>= 0.2.3),
-    future (>= 1.21.0),
-    purrr (>= 0.3.4),
     infer (>= 1.0.4),
     lubridate (>= 1.8.0),
     quadprog (>= 1.5),
@@ -27,7 +24,10 @@ Suggests:
     knitr,
     rmarkdown,
     hexSticker,
-    ggplot2
+    ggplot2,
+    furrr (>= 0.2.3),
+    future (>= 1.21.0),
+    purrr (>= 0.3.4),
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
