@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the following paper as below"
+authors:
+- family-names: "Kreitmeir"
+  given-names: "David"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Lane"
+  given-names: "Nathan"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Raschky"
+  given-names: "Paul"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "The Value of Names - Civil Society, Information, and Governing Multinationals on the Global Periphery"
+version: 
+doi: 10.2139/ssrn.3751162
+date-released: 2021-02-28
+url: "https://ssrn.com/abstract=3751162"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Kreitmeir"
+    given-names: "David"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+  - family-names: "Lane"
+    given-names: "Nathan"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+  - family-names: "Raschky"
+    given-names: "Paul"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+  doi: "10.2139/ssrn.3751162"
+  title: "The Value of Names - Civil Society, Information, and Governing Multinationals on the Global Periphery"
+  year: 2021

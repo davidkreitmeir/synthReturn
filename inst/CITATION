@@ -1,0 +1,26 @@
+citHeader("If you use this software, please cite the following paper as below:")
+
+citEntry(
+  entry    = "Article",
+  title    = "The Value of Names - Civil Society, Information, and Governing Multinationals on the Global Periphery",
+  author   = c(person("David", "Kreitmeir",
+                                 email = "",
+                                 comment = c(ORCID = "0000-0000-0000-0000")),
+               person("Nathan", "Lane",
+                                 email = "",
+                                 comment = c(ORCID = "0000-0000-0000-0000")),
+               person("Paul", "Raschky",
+                                 email = "",
+                                 comment = c(ORCID = "0000-0000-0000-0000"))
+                                 ),
+  journal  = ,
+  year     = 2021,
+  volume   = ,
+  number   = ,
+  pages    = ,
+  url      = "https://ssrn.com/abstract=3751162",
+  doi      = "10.2139/ssrn.3751162",
+  textVersion = paste(
+
+  )
+)
