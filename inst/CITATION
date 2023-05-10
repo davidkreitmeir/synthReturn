@@ -2,19 +2,19 @@ citHeader("If you use this software, please cite the following paper as below:")
 
 citEntry(
   entry    = "Article",
-  title    = "The Value of Names - Civil Society, Information, and Governing Multinationals on the Global Periphery",
+  title    = "The Value of Names - Civil Society, Information, and Governing Multinationals",
   author   = c(person("David", "Kreitmeir",
-                                 email = "",
-                                 comment = c(ORCID = "0000-0000-0000-0000")),
+                                 email = "david.kreitmeir1@monash.edu",
+                                 comment = c(ORCID = "0009-0000-1808-1855")),
                person("Nathan", "Lane",
                                  email = "",
-                                 comment = c(ORCID = "0000-0000-0000-0000")),
+                                 comment = ""),
                person("Paul", "Raschky",
                                  email = "",
-                                 comment = c(ORCID = "0000-0000-0000-0000"))
+                                 comment = "")
                                  ),
   journal  = ,
-  year     = 2021,
+  year     = 2023,
   volume   = ,
   number   = ,
   pages    = ,
