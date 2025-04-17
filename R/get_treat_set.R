@@ -24,11 +24,6 @@ NULL
 #'  \item{eventobs_min}{Indicator variable for event window. Equal to 1 if trading day during event window,
 #'  and 0 otherwise.}
 #'
-#' @import data.table
-#' @importFrom data.table .N
-#' @importFrom data.table ':='
-#' @importFrom purrr possibly
-
 
 get_treat_set <- function(
   eventdate,
@@ -39,32 +34,31 @@ get_treat_set <- function(
   eventobs_min
 ){
 
-  # print(eventdate)
-  evdate <- eventdate
-
   # get relative time variable
-  out <- tdata[ed == evdate,]
-  out <- out[, datenum := 1:.N, by = tid]
-  target <- out[, target := ifelse(d == ed, datenum, 0)][, .(target = base::max(target)), by = tid]
-  out <- out[, target := NULL][target, on = .(tid)]
-  out <- out[, tau := datenum - target][, `:=` (target = NULL,datenum = NULL)]
+  out <- tdata[ed == eventdate,]
+  out <- out[, datenum := 1:.N, by = "tid"]
+  out[, targetv := data.table::fifelse(d == ed, datenum, 0L)]
+  target <- out[, .(targetv = max(targetv)), by = "tid"]
+  out[, targetv := NULL]
+  out <- out[target, on = "tid"]
+  out[, tau := datenum - targetv]
+  out[, c("targetv", "datenum") := NULL]
   # indicator for event and estimation window
-  out <- out[, estwind := base::ifelse(tau >= estwind[1] & tau <= estwind[2], 1,0)][, eventwind := base::ifelse(tau >= eventwind[1] & tau <= eventwind[2], 1,0) ]
-  out <- out[(estwind == 1 | eventwind == 1),]
+  out[, c("estwind", "eventwind") := list(as.integer(tau %between% estwind), as.integer(tau %between% eventwind))]
+  out <- out[estwind == 1L | eventwind == 1L,]
   # get number of non-missing trading days for estimation AND event windows
-  out <- out[, n_est_obs := base::sum(!is.na(r) & base::is.finite(r) & estwind == 1), by = tid]
-  out <- out[, n_event_obs := base::sum(!is.na(r) & base::is.finite(r) & eventwind == 1), by = tid]
+  out <- out[, n_est_obs := sum(!is.na(r) & is.finite(r) & estwind == 1L), by = "tid"]
+  out <- out[, n_event_obs := sum(!is.na(r) & is.finite(r) & eventwind == 1L), by = "tid"]
   # Drop thinly-traded firms and firms without return variance during entire sample period
-  var_ids <- out[r != 0 & !is.na(r) & base::is.finite(r),][,.(r_var = .N), by = .(tid)][r_var > 0, "tid"]$tid
-  tids <- out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), .SD[1], by = "tid"]
+  var_ids <- out[r != 0 & !is.na(r) & is.finite(r),][, .(r_var = .N), by = "tid"][r_var > 0L, "tid"][["tid"]]
+  tids <- out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), .SD[1L], by = "tid"]
   tids <- tids[tid %in% var_ids, c("tid", "ed")]
-  tids <- tids$tid
+  tids <- tids[["tid"]]
 
   # return "event panels" of firms in treatment group for event d
-  out <- out[tid %in% tids, c("tid", "d", "ed", "r","estwind","eventwind")]
+  out <- out[tid %in% tids, c("tid", "d", "ed", "r", "estwind", "eventwind")]
 
   return(out)
-
 }
 
 # make sure code does not break because of an error during calculation of a specific corporation

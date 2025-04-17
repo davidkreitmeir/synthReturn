@@ -1,24 +1,25 @@
 Package: synthReturn
 Type: Package
-Title: Synthetic Matchin Method for Returns
-Version: 0.1.0
+Title: Synthetic Matching Method for Returns
+Version: 0.1.1
 Authors@R: person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre"))
-Maintainer: David Kreitmeir <david.kreitmeir1@monash.edu>
-Description: Implements the synthetic matching method originally suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2020) to accommodate multiple event dates and missing values.
+Description: Implements the synthetic matching method originally suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2020) to accommodate 
+  multiple event dates and missing values.
 License: GPL (>= 3)
 Encoding: UTF-8
+URL: https://github.com/davidkreitmeir/synthReturn
+BugReports: https://github.com/davidkreitmeir/synthReturn/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports:
-	corpcor (>= 1.6.10),
+  base (>= 4.0.0)
+	  corpcor (>= 1.6.10),
     data.table (>= 1.14.2),
     dplyr (>= 1.0.9),
     infer (>= 1.0.4),
     lubridate (>= 1.8.0),
     quadprog (>= 1.5),
     tidyr (>= 1.2.0)
-Depends: 
-    R (>= 4.1.1)
 LazyData: true
 Suggests: 
     knitr,

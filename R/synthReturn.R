@@ -30,10 +30,11 @@ NULL
 #' \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
 #' \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws)}
 #'
-#' @import data.table
 #' @importFrom data.table .N
-#' @importFrom data.table ':='
+#' @importFrom data.table :=
+#' @importFrom data.table %between%
 #' @importFrom infer rep_slice_sample
+#' @importFrom lubridate is.Date
 #'
 #' @examples
 #' # -----------------------------------------------
@@ -147,7 +148,7 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
 
-  if(placebo == TRUE){
+  if(placebo){
 
     # unique event dates
     eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
