@@ -15,7 +15,4 @@ test_that("synthReturn works for 1 event date, no missing values and 1 data fram
     estwind = c(-100, -1),
     eventwind = c(0,5)
   )
-
-
-
 })

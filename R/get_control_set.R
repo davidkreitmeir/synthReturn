@@ -21,10 +21,6 @@ NULL
 #'  \item{ed}{Event date}
 #'  \item{r}{Stock return.}
 #'
-#' @import data.table
-#' @importFrom data.table .N
-#' @importFrom data.table ':='
-#' @importFrom purrr possibly
 
 get_control_set <- function(
   eventdate,
@@ -33,36 +29,33 @@ get_control_set <- function(
   eventwind,
   estobs_min,
   eventobs_min
-){
+) {
 
-  # print(eventdate)
-  evdate <- eventdate
+  # make sure code does not break because of an error during calculation of a specific corporation
+  out <- tryCatch({
+    # gen relative time variable
+    out <- cdata[, ed := eventdate]
+    out <- out[, datenum := 1:.N, by = "cid"]
+    out[, targetv := data.table::fifelse(d == ed, datenum, 0)]
+    target <- out[, .(targetv = max(targetv)), by = "cid"]
+    out[, targetv := NULL]
+    out <- out[target, on = "cid"]
+    out[, tau := datenum - targetv]
+    out[, c("targetv", "datenum") := NULL]
+    # create indicator for
+    out[, c("est_wind", "event_wind") := list(as.integer(tau %between% estwind), as.integer(tau %between% eventwind))]
+    out <- out[(est_wind == 1L | event_wind == 1L),]
+    # get no of non-missing trading days for estimation AND event windows
+    out <- out[, n_est_obs := sum(is.finite(r) & est_wind == 1), by = "cid"]
+    out <- out[, n_event_obs := sum(is.finite(r) & event_wind == 1), by = "cid"]
+    # Drop thinly-traded companies or corporations without return variance
+    var_ids <- out[r != 0 & is.finite(r),][, .(r_var = stats::var(r, na.rm = TRUE)), by = "cid"][r_var > 0, "cid"]
+    cids <- unique(out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), "cid"])[var_ids, "cid", nomatch = NULL, on = "cid"]
 
-  # gen relative time variable
-  out <- cdata[, ed := evdate]
-  out <- out[, datenum := 1:.N, by = cid]
-  target <- out[, target := base::ifelse(d == ed, datenum, 0)][, .(target = max(target)), by = cid]
-  out <- out[, target := NULL][target, on = .(cid)]
-  out <- out[, tau := datenum - target][, `:=` (target = NULL,datenum = NULL)]
-  # create indicator for
-  out <- out[, est_wind := base::ifelse(tau >= estwind[1] & tau <= estwind[2], 1,0)][, event_wind := base::ifelse(tau >= eventwind[1] & tau <= eventwind[2], 1,0) ]
-  out <- out[(est_wind == 1 | event_wind == 1),]
-  # get no of non-missing trading days for estimation AND event windows
-  out <- out[, n_est_obs := base::sum(!is.na(r) & base::is.finite(r) & est_wind == 1), by = cid]
-  out <- out[, n_event_obs := base::sum(!is.na(r) & base::is.finite(r) & event_wind == 1), by = cid]
-  # Drop thinly-traded companies or corporations without return variance
-  var_ids <- out[r != 0 & !is.na(r) & base::is.finite(r),][,.(r_var = .N), by = .(cid)][r_var > 0, "cid"]$cid
-  cids <- out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), .SD[1], by = "cid"]
-  cids <- cids[cid %in% var_ids, c("cid", "ed")]
-  cids <- cids$cid
-
-  # return set of potential control corporations for event date
-  out <- out[cid %in% cids, c("cid", "ed", "d", "r")]
+    # return set of potential control corporations for event date
+    out <- out[cids, c("cid", "ed", "d", "r"), nomatch = NULL, on = "cid"]
+    return(out)
+  }, error = function(x) return(NULL))
 
   return(out)
-
 }
-
-# make sure code does not break because of an error during calculation of a specific corporation
-get_control_set =  purrr::possibly(get_control_set, otherwise = NULL, quiet = TRUE)
-

@@ -136,8 +136,8 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Implement the methods
 
-  r_treat = dp[[1]]
-  r_control = dp[[2]]
+  r_treat = dp[[1L]]
+  r_control = dp[[2L]]
 
   # Compute average treatment effect `phi` (for "actual" treatment group)
   res <- phi_comp(
@@ -151,65 +151,67 @@ synthReturn <- function(
   if(placebo){
 
     # unique event dates
-    eds <- base::unique(r_treat[, .SD[1], by = tid]$ed)
+    eds <- unique(r_treat[, .SD[1], by = tid]$ed)
     # number of treated corporations
-    n_treat <- base::length(base::unique(r_treat[, .SD[1], by = tid]$tid))
+    n_treat <- data.table::uniqueN(r_treat, by = "tid")
 
-    cid_placebo <- r_control[, .SD[1], by = c("cid", "ed")][, `:=` (r = NULL, d = NULL)]
-    ed_placebo <- cid_placebo[, ntotal := 1:.N, by = ed]
+    cid_placebo <- r_control[, .SD[1], by = c("cid", "ed")]
+    cid_placebo[, c("r", "d") := NULL]
+    ed_placebo <- cid_placebo[, ntotal := 1:.N, by = "ed"]
     # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
-    ngroup_min <- base::floor(ngroup*n_treat)
-    ed_placebo <- ed_placebo[, .(ntotal = base::max(ntotal)), by = ed][ntotal >= ngroup_min, "ed"]$ed
+    ngroup_min <- floor(ngroup*n_treat)
+    ed_placebo <- ed_placebo[, .(ntotal = max(ntotal)), by = "ed"][ntotal >= ngroup_min, "ed"]
     # final set of placebo event dates (and potentially placebo treated firms)
-    cid_placebo <- cid_placebo[ed %in% ed_placebo,  c("cid", "ed")]
+    cid_placebo <- cid_placebo[ed_placebo, c("cid", "ed"), nomatch = NULL, on = "ed"]
+    rm(ed_placebo)
 
     # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
     # for each (unique) event date.
-    pids <- data.table:::split.data.table(cid_placebo, by = "ed")
-    pids <- base::lapply(
+    pids <- split(cid_placebo, by = "ed")
+    pids <- lapply(
       pids,
       infer::rep_slice_sample,
       n = n_treat,
       replace = TRUE,
-      reps =  ndraws
+      reps = ndraws
     )
     # generate unique placebo id (pid = ndraws x number_of_event_dates)
-    pids <- data.table::rbindlist(pids, use.names = TRUE, idcol="edid")
+    pids <- data.table::rbindlist(pids, use.names = TRUE, idcol = "edid")
     pids <- convert_DT(pids)
     pids <- pids[, pid := .GRP, by = .(edid, replicate)]
-    pids <- pids[, `:=` (edid = NULL, replicate = NULL)]
+    pids <- pids[, c("edid", "replicate") := NULL]
     pids <- split(pids, by = "pid")
 
     # compute treatment effect for all placebo treatment groups
-    phi_placebo <- base::lapply(
+    phi_placebo <- lapply(
       pids,
       phi_comp_placebo,
       dt_control = r_control,
       estwind = estwind
     )
 
-    phi_placebo <- data.table::rbindlist(phi_placebo, use.names = TRUE, idcol="pid")
+    phi_placebo <- data.table::rbindlist(phi_placebo, use.names = TRUE, idcol = "pid")
     # get number of placebo treatment effects
-    n_placebo <- base::length(base::unique(phi_placebo[, .SD[1], by = pid]$pid))
+    n_placebo <- data.table::uniqueN(phi_placebo, by = "pid")
 
     # calculate CI intervals
-    phi_CI90 = phi_placebo[, .(ci_90_lower = quantile(phi, probs = 0.05), ci_90_upper = quantile(phi, probs = 0.95)), by = tau]
-    phi_CI95 = phi_placebo[, .(ci_95_lower = quantile(phi, probs = 0.025), ci_95_upper = quantile(phi, probs = 0.975)), by = tau]
-    phi_CI99 = phi_placebo[, .(ci_99_lower = quantile(phi, probs = 0.005), ci_99_upper = quantile(phi, probs = 0.995)), by = tau]
+    phi_CI90 = phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
+    phi_CI95 = phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
+    phi_CI99 = phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
     # create "output" table
-    restab <- res["phi"]$phi
-    restab <- restab[phi_CI90, on = .(tau)][phi_CI95, on = .(tau)][phi_CI99, on = .(tau)]
+    restab <- res[["phi"]]
+    restab <- restab[phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"]
 
     # return all information of interest
-    out = list(ate = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
+    out = list(ate = restab, ar = res[["ar"]], placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
 
 
   } else {
 
     # return all information of interest (no CIs)
-    restab <- res["phi"]$phi
-    out <- list(ate = restab, ar = res["ar"]$ar, placebo = list(phi_placebo = NULL, n_placebo = NULL))
+    restab <- res[["phi"]]
+    out <- list(ate = restab, ar = res[["ar"]], placebo = list(phi_placebo = NULL, n_placebo = NULL))
 
   }
 
@@ -226,7 +228,7 @@ synthReturn <- function(
     ndraws = argu$ndraws
   )
 
-  out <- base::append(out, list(arg = argu))
+  out <- append(out, list(arg = argu))
 
   # Define a new class
   class(out) <- "synthReturn"

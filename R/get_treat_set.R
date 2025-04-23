@@ -26,41 +26,37 @@ NULL
 #'
 
 get_treat_set <- function(
-  eventdate,
-  tdata,
+  out,
   estwind,
   eventwind,
   estobs_min,
   eventobs_min
-){
+) {
 
-  # get relative time variable
-  out <- tdata[ed == eventdate,]
-  out <- out[, datenum := 1:.N, by = "tid"]
-  out[, targetv := data.table::fifelse(d == ed, datenum, 0L)]
-  target <- out[, .(targetv = max(targetv)), by = "tid"]
-  out[, targetv := NULL]
-  out <- out[target, on = "tid"]
-  out[, tau := datenum - targetv]
-  out[, c("targetv", "datenum") := NULL]
-  # indicator for event and estimation window
-  out[, c("estwind", "eventwind") := list(as.integer(tau %between% estwind), as.integer(tau %between% eventwind))]
-  out <- out[estwind == 1L | eventwind == 1L,]
-  # get number of non-missing trading days for estimation AND event windows
-  out <- out[, n_est_obs := sum(!is.na(r) & is.finite(r) & estwind == 1L), by = "tid"]
-  out <- out[, n_event_obs := sum(!is.na(r) & is.finite(r) & eventwind == 1L), by = "tid"]
-  # Drop thinly-traded firms and firms without return variance during entire sample period
-  var_ids <- out[r != 0 & !is.na(r) & is.finite(r),][, .(r_var = .N), by = "tid"][r_var > 0L, "tid"][["tid"]]
-  tids <- out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), .SD[1L], by = "tid"]
-  tids <- tids[tid %in% var_ids, c("tid", "ed")]
-  tids <- tids[["tid"]]
+  # make sure code does not break because of an error during calculation of a specific corporation
+  out <- tryCatch({
+    # get relative time variable
+    out <- out[, datenum := 1:.N, by = "tid"]
+    out[, targetv := data.table::fifelse(d == ed, datenum, 0L)]
+    target <- out[, .(targetv = max(targetv)), by = "tid"]
+    out[, targetv := NULL]
+    out <- out[target, on = "tid"]
+    out[, tau := datenum - targetv]
+    out[, c("targetv", "datenum") := NULL]
+    # indicator for event and estimation window
+    out[, c("estwind", "eventwind") := list(as.integer(tau %between% estwind), as.integer(tau %between% eventwind))]
+    out <- out[estwind == 1L | eventwind == 1L,]
+    # get number of non-missing trading days for estimation AND event windows
+    out <- out[, n_est_obs := sum(is.finite(r) & estwind == 1L), by = "tid"]
+    out <- out[, n_event_obs := sum(is.finite(r) & eventwind == 1L), by = "tid"]
+    # Drop thinly-traded firms and firms without return variance during entire sample period
+    var_ids <- out[r != 0 & is.finite(r),][, .(r_var = stats::var(r, na.rm = TRUE)), by = "tid"][r_var > 0, "tid"]
+    tids <- unique(out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), "tid"])[var_ids, "tid", nomatch = NULL, on = "tid"]
 
-  # return "event panels" of firms in treatment group for event d
-  out <- out[tid %in% tids, c("tid", "d", "ed", "r", "estwind", "eventwind")]
+    # return "event panels" of firms in treatment group for event d
+    out <- out[tids, c("tid", "d", "ed", "r", "estwind", "eventwind"), nomatch = NULL, on = "tid"]
+    return(out)
+  }, error = function(x) return(NULL))
 
   return(out)
 }
-
-# make sure code does not break because of an error during calculation of a specific corporation
-get_treat_set =  purrr::possibly(get_treat_set, otherwise = NULL, quiet = TRUE)
-

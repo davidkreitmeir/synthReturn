@@ -173,9 +173,3 @@ test_that("2 events, missing returns", {
   )
 
 })
-
-
-
-
-
-

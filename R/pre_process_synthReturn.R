@@ -162,25 +162,37 @@ pre_process_synthReturn <- function(
   }
 
   #-----------------------------------------------------------------------------
-  # setup data in required format
-
-  data.table::setkey(r_treat, ed)
-  data.table::setkey(r_control, ed)
-
-  # get all event dates
-  eds <- unique(r_treat[, "ed"])[["ed"]]
+  # setup data in required form
 
   # reshape treatment returns
-
-  r_treat <- data.table::rbindlist(lapply(
-    eds,
-    get_treat_set,
-    tdata = r_treat,
-    estwind = estwind,
-    eventwind = eventwind,
-    estobs_min = estobs_min,
-    eventobs_min = eventobs_min
-  ))
+  if(.Platform$OS.type == "windows") {
+    mirai::daemons(ncores)
+    r_treat <- data.table::rbindlist(
+      mirai::mirai_map(
+        split(r_treat, by = "ed"),
+        get_treat_set,
+        .args = list(
+          estwind = estwind,
+          eventwind = eventwind,
+          estobs_min = estobs_min,
+          eventobs_min = eventobs_min
+        )
+      )
+    )
+    mirai::daemons(0L)
+  } else {
+    r_treat <- data.table::rbindlist(
+      parallel::mclapply(
+        split(r_treat, by = "ed"),
+        get_treat_set,
+        estwind = estwind,
+        eventwind = eventwind,
+        estobs_min = estobs_min,
+        eventobs_min = eventobs_min,
+        mc.cores = ncores
+      )
+    )
+  }
 
   # reshape control returns
   r_control <- data.table::rbindlist(lapply(

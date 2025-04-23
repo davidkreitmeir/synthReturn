@@ -12,23 +12,25 @@ BugReports: https://github.com/davidkreitmeir/synthReturn/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports:
-  base (>= 4.0.0)
-	  corpcor (>= 1.6.10),
-    data.table (>= 1.14.2),
-    dplyr (>= 1.0.9),
-    infer (>= 1.0.4),
-    lubridate (>= 1.8.0),
-    quadprog (>= 1.5),
-    tidyr (>= 1.2.0)
+  base (>= 4.0.0),
+  stats,
+  corpcor (>= 1.6.10),
+  data.table (>= 1.14.2),
+  dplyr (>= 1.0.9),
+  infer (>= 1.0.4),
+  lubridate (>= 1.8.0),
+  quadprog (>= 1.5),
+  tidyr (>= 1.2.0),
+  parallel,
+  mirai
 LazyData: true
 Suggests: 
-    knitr,
-    rmarkdown,
-    hexSticker,
-    ggplot2,
-    furrr (>= 0.2.3),
-    future (>= 1.21.0),
-    purrr (>= 0.3.4),
-    testthat (>= 3.0.0)
+  knitr,
+  rmarkdown,
+  hexSticker,
+  ggplot2,
+  furrr (>= 0.2.3),
+  future (>= 1.21.0),
+  testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

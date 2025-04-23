@@ -22,44 +22,44 @@ NULL
 #'  \item{eventwind}{window indicator.}
 #'  \item{r}{Stock return.}
 #'
-#' @import data.table
-#' @importFrom purrr possibly
 
 get_event_panel <- function(dt_treat, dt_control){
 
   # get set of all "potential" control companies for event date
-  edate <- dt_treat[, .SD[1], by = ed]$ed
+  edate <- dt_treat[, .SD[1], by = ed][["ed"]]
   r_event <- dt_control[ed == edate,]
 
   # get dates when treated corporation is traded
   dates <- dt_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
-  tdates <- dates$d
+  tdates <- dates[["d"]]
   # select control companies
   cids <- r_event[!is.na(r) & d %in% tdates, c("cid", "d", "r")]
   # (1) No missing trading days on days treated corporation is traded
-  cids <- cids[, tdays:= 1:.N, by = cid]
-  cids <- cids[,.(tdays = base::max(tdays)), by = cid]
+  cids <- cids[, tdays := 1:.N, by = "cid"]
+  cids <- cids[, .(tdays = max(tdays)), by = "cid"]
   # control corp needs exactly the same length of observed trading days as treated corporation
-  cids <- cids[tdays >= base::length(tdates)]$cid
+  cids <- cids[tdays >= length(tdates), "cid"][["cid"]]
   # (2) price changes need to be observed during sample period
-  cids <- r_event[cid %in% cids, c("cid", "r")]
-  cids <- cids[r != 0 & !is.na(r),][,.(r_var = .N), by = .(cid)]
+  cids <- r_event[.(cids), c("cid", "r"), nomatch = NULL, on = "cid"]
+  cids <- cids[r != 0 & !is.na(r),][, .(r_var = .N), by = "cid"]
 
   # convert ids and dates to vectors
-  cids <- cids$cid
+  cids <- cids[["cid"]]
   # filter control corp set
   r_event <- r_event[(d %in% tdates & cid %in% cids), c("cid",  "r", "d")]
-  r_event <-  r_event[dates, on = "d"]
-  r_event <- r_event[, d := NULL][ , t := 1:.N, by=cid]
+  r_event <- r_event[dates, on = "d"]
+  r_event <- r_event[, d := NULL][, t := 1:.N, by = "cid"]
   # give treated firm the unique and not assigned cid = 0
-  dt_treat <- dt_treat[d %in% tdates,][, `:=` (cid = 0, tid = NULL, ed = NULL, d = NULL)][,t := 1:.N,by=cid]
+  dt_treat <- dt_treat[d %in% tdates,]
+  dt_treat[, c("tid", "ed", "d") := NULL]
+  dt_treat[, cid := 0]
+  dt_treat[, t := 1:.N]
 
   # combine data.tables
   out <- rbindlist(list(r_event, dt_treat), use.names = TRUE)
   out <- data.table::setorder(out, cid, t)
 
   return(out)
-
 }
 
 get_event_panel <- purrr::possibly(get_event_panel, otherwise = NULL, quiet = TRUE)
