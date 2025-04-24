@@ -16,7 +16,6 @@ Imports:
   stats,
   corpcor (>= 1.6.10),
   data.table (>= 1.14.2),
-  dplyr (>= 1.0.9),
   infer (>= 1.0.4),
   lubridate (>= 1.8.0),
   quadprog (>= 1.5),
@@ -27,8 +26,6 @@ LazyData: true
 Suggests: 
   knitr,
   rmarkdown,
-  hexSticker,
-  ggplot2,
   furrr (>= 0.2.3),
   future (>= 1.21.0),
   testthat (>= 3.0.0)
