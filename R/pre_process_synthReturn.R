@@ -17,8 +17,10 @@ pre_process_synthReturn <- function(
   eventobs_min,
   placebo,
   ngroup,
-  ndraws
-){
+  ndraws,
+  ncores,
+  is_windows
+) {
 
   #-----------------------------------------------------------------------------
   # Data pre-processing and error checking
@@ -27,49 +29,65 @@ pre_process_synthReturn <- function(
 
   # make sure dataset is a data.table
   # this gets around RStudio's default of reading data as tibble
-  DT <- convert_DT(data)
+  # copy data (inefficient but permits by-reference operations without affecting input data)
+  # copying should be omitted in future patch (requires downstream changes)
+  if(("data.table" %chin% class(data))) {
+    DT <- data.table::copy(data)
+  } else {
+    DT <- data.table::as.data.table(data)
+  }
 
+  names_DT <- names(DT)
   # Flag for tidnam
-  if(!(tidname %chin% names(DT))) {
+  if(!(tidname %chin% names_DT)) {
     stop("tidname = ", tidname, " could not be found in the data provided.")
   }
   # Flag for cidname
-  if(!(cidname %chin% names(DT))) {
+  if(!(cidname %chin% names_DT)) {
     stop("cidname = ", cidname, " could not be found in the data provided.")
   }
   # Flag for rname
-  if(!(rname %chin% names(DT))) {
+  if(!(rname %chin% names_DT)) {
     stop("rname = ", rname, " could not be found in the data provided.")
   }
   # Flag for dname
-  if(!(dname %chin% names(DT))) {
+  if(!(dname %chin% names_DT)) {
     stop("dname = ", dname, " could not be found in the data provided.")
   }
   # Flag for edname
-  if(!(edname %chin% names(DT))) {
+  if(!(edname %chin% names_DT)) {
     stop("edname = ", edname, " could not be found in the data provided.")
   }
+  rm(names_DT)
 
   # check if estimation window has correct format
-  if(length(estwind) != 2L) {
+  if(!is.vector(estwind) || length(estwind) != 2L) {
     stop("estwind = ", estwind, " is not of format `c(est_start, est_end)`.")
+  }
+  if(anyNA(estwind)) {
+    stop("estwind must not contain NA values.")
+  }
+  if(estwind[1L] > estwind[2L]) {
+    stop("estwind[1] must not be larger than estwind[2]")
   }
 
   # check if estimation window has correct format
-  if(length(eventwind) != 2){
+  if(!is.vector(eventwind) || length(eventwind) != 2L) {
     stop("eventwind = ", eventwind, " is not of format `c(event_start, event_end)`.")
+  }
+  if(anyNA(eventwind)) {
+    stop("eventwind must not contain NA values.")
+  }
+  if(eventwind[1L] > eventwind[2L]) {
+    stop("eventwind[1] must not be larger than eventwind[2]")
   }
 
   # Return variable will be denoted by r
-  colnames(DT)[colnames(DT) == rname] <- "r"
   # date variable will be denoted by d
-  colnames(DT)[colnames(DT) == dname] <- "d"
   # event date variable will be denoted by ed
-  colnames(DT)[colnames(DT) == edname] <- "ed"
   # treatment group identifier will be denoted by tid
-  colnames(DT)[colnames(DT) == tidname] <- "tid"
   # control group identifier will be denoted by cid
-  colnames(DT)[colnames(DT) == cidname] <- "cid"
+  data.table::setnames(DT, c(rname, dname, edname, tidname, cidname), c("r", "d", "ed", "tid", "cid"))
 
   # convert data into 2 DTs: r_treat & r_control
   r_treat <- DT[!is.na(tid), c("tid", "d", "ed", "r")]
@@ -80,12 +98,12 @@ pre_process_synthReturn <- function(
   r_control <- data.table::setorder(r_control, cid, d)
 
   # make sure dates are of format date
-  if(!(lubridate::is.Date(DT[["d"]]))) {
+  if(!(inherits(DT[["d"]], "Date"))) {
     stop("data[, dname] must be of format date. Please convert it.")
   }
 
   # make sure edname is of format date
-  if(!(lubridate::is.Date(r_treat[["ed"]]))) {
+  if(!(inherits(r_treat[["ed"]], "Date"))) {
     stop("data[, edname] must be of format dname. Please convert it.")
   }
 
@@ -100,12 +118,14 @@ pre_process_synthReturn <- function(
   }
 
   # Check if tidname is unique by dname
-  n_id_date_treat <- sum(r_treat[, .(dup = data.table::anyDuplicated(tid)), by = "d"][["dup"]]) == 0L
-  if(!n_id_date_treat) stop("The value of tidname must be the unique (by dname)")
+  if(sum(r_treat[, .(dup = anyDuplicated(tid)), by = "d"][["dup"]]) != 0L) {
+    stop("The value of tidname must be the unique (by dname)")
+  }
 
   # Check if cidname is unique by dname
-  n_id_date_control <- sum(r_control[, .(dup = data.table::anyDuplicated(cid)), by = "d"][["dup"]]) == 0L
-  if(!n_id_date_control) stop("The value of tidname must be the unique (by dname)")
+  if(sum(r_control[, .(dup = anyDuplicated(cid)), by = "d"][["dup"]]) != 0L) {
+    stop("The value of tidname must be the unique (by dname)")
+  }
 
   # make sure the estobs_min and eventobs_min are correctly specified
   # get length of estimation and event window
@@ -114,8 +134,8 @@ pre_process_synthReturn <- function(
 
   # check sanity of arguments estobs_min and eventobs_min
 
-  if(length(estobs_min) != 1L || !is.numeric(estobs_min) || is.na(estobs_min)) stop("estobs_min must be numeric and of length one.")
-  if(length(eventobs_min) != 1L || !is.numeric(eventobs_min) || is.na(eventobs_min)) stop("eventobs_min must be numeric and of length one.")
+  if(length(estobs_min) != 1L || !is.numeric(estobs_min) || !is.finite(estobs_min)) stop("estobs_min must be numeric and of length one.")
+  if(length(eventobs_min) != 1L || !is.numeric(eventobs_min) || !is.finite(eventobs_min)) stop("eventobs_min must be numeric and of length one.")
 
   # if estobs_min is greater than 1 and not an integer
   if((estobs_min > 1L) && (as.integer(estobs_min) != estobs_min)) {
@@ -139,25 +159,28 @@ pre_process_synthReturn <- function(
     stop("The value of eventobs_min has to be either between [0,1] or an integer <= length of the event window.")
   }
 
-
   # check placebo options
   if(placebo){
-    if(length(ndraws) != 1L || !is.numeric(ndraws) || is.na(ndraws)) stop("ndraws must be numeric and of length one.")
-    if(as.integer(ndraws) != ndraws){
+    if(length(ndraws) != 1L || !is.numeric(ndraws) || !is.finite(ndraws)) {
+      stop("ndraws must be numeric and of length one.")
+    }
+    if(ndraws < 1L || as.integer(ndraws) != ndraws){
       stop("The value of ndraws has to be an integer (>=) 1. Please convert it.")
     }
-    if(length(ngroup) != 1L || !is.numeric(ngroup) || is.na(ngroup)) stop("ngroup must be numeric and of length one.")
+    if(length(ngroup) != 1L || !is.numeric(ngroup) || !is.finite(ngroup)) {
+      stop("ngroup must be numeric and of length one.")
+    }
     if(ngroup <= 1L) {
       stop("The value of ngroup has to be larger than 1. Please convert it.")
     }
   }
 
   # if minimum trading days during estimation window in percent, convert to next (smallest) integer
-  if(estobs_min >= 0L && estobs_min <= 1L) {
+  if(estobs_min %between% (0:1)) {
     estobs_min <- floor(estobs_min * estwindlen)
   }
   # if minimum trading days during event window in percent, convert to next (smallest) integer
-  if(eventobs_min >= 0L && eventobs_min <= 1L){
+  if(eventobs_min %between% (0:1)) {
     eventobs_min <- floor(eventobs_min * eventwindlen)
   }
 
@@ -165,45 +188,92 @@ pre_process_synthReturn <- function(
   # setup data in required form
 
   # reshape treatment returns
-  if(.Platform$OS.type == "windows") {
-    mirai::daemons(ncores)
+  r_treat <- split(r_treat, by = "ed")
+  if(ncores == 1L) {
     r_treat <- data.table::rbindlist(
-      mirai::mirai_map(
-        split(r_treat, by = "ed"),
-        get_treat_set,
-        .args = list(
-          estwind = estwind,
-          eventwind = eventwind,
-          estobs_min = estobs_min,
-          eventobs_min = eventobs_min
-        )
-      )
-    )
-    mirai::daemons(0L)
-  } else {
-    r_treat <- data.table::rbindlist(
-      parallel::mclapply(
-        split(r_treat, by = "ed"),
+      lapply(
+        r_treat,
         get_treat_set,
         estwind = estwind,
         eventwind = eventwind,
         estobs_min = estobs_min,
-        eventobs_min = eventobs_min,
-        mc.cores = ncores
+        eventobs_min = eventobs_min
       )
     )
+  } else {
+    if(is_windows) {
+      mirai::daemons(ncores)
+      r_treat <- data.table::rbindlist(
+        mirai::mirai_map(
+          r_treat,
+          get_treat_set,
+          .args = list(
+            estwind = estwind,
+            eventwind = eventwind,
+            estobs_min = estobs_min,
+            eventobs_min = eventobs_min
+          )
+        )[]
+      )
+    } else {
+      r_treat <- data.table::rbindlist(
+        parallel::mclapply(
+          r_treat,
+          get_treat_set,
+          estwind = estwind,
+          eventwind = eventwind,
+          estobs_min = estobs_min,
+          eventobs_min = eventobs_min,
+          mc.cores = ncores
+        )
+      )
+    }
   }
 
   # reshape control returns
-  r_control <- data.table::rbindlist(lapply(
-    eds,
-    get_control_set,
-    cdata = r_control,
-    estwind = estwind,
-    eventwind = eventwind,
-    estobs_min = estobs_min,
-    eventobs_min = eventobs_min
-  ))
+  if(ncores == 1L) {
+    r_control <- data.table::rbindlist(
+      lapply(
+        unique(r_treat[, "ed"])[["ed"]],
+        get_control_set,
+        cdata = r_control,
+        estwind = estwind,
+        eventwind = eventwind,
+        estobs_min = estobs_min,
+        eventobs_min = eventobs_min
+      )
+    )
+  } else {
+    if(is_windows) {
+      r_control <- data.table::rbindlist(
+        mirai::mirai_map(
+          unique(r_treat[, "ed"])[["ed"]],
+          get_control_set,
+          .args = list(
+            cdata = r_control,
+            estwind = estwind,
+            eventwind = eventwind,
+            estobs_min = estobs_min,
+            eventobs_min = eventobs_min
+          )
+        )[]
+      )
+      mirai::daemons(0L)
+    } else {
+      r_control <- data.table::rbindlist(
+        parallel::mclapply(
+          unique(r_treat[, "ed"])[["ed"]],
+          get_control_set,
+          cdata = r_control,
+          estwind = estwind,
+          eventwind = eventwind,
+          estobs_min = estobs_min,
+          eventobs_min = eventobs_min,
+          mc.cores = ncores
+        )
+      )
+    }
+  }
 
   # warning message that there are missing values in treatment group
   if(anyNA(r_treat[["r"]])){

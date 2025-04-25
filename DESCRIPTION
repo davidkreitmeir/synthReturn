@@ -10,24 +10,20 @@ Encoding: UTF-8
 URL: https://github.com/davidkreitmeir/synthReturn
 BugReports: https://github.com/davidkreitmeir/synthReturn/issues
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Imports:
   base (>= 4.0.0),
   stats,
+  utils,
   corpcor (>= 1.6.10),
   data.table (>= 1.14.2),
-  infer (>= 1.0.4),
-  lubridate (>= 1.8.0),
   quadprog (>= 1.5),
-  tidyr (>= 1.2.0),
   parallel,
   mirai
 LazyData: true
 Suggests: 
   knitr,
   rmarkdown,
-  furrr (>= 0.2.3),
-  future (>= 1.21.0),
   testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

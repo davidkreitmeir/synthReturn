@@ -1,5 +1,3 @@
-devtools::load_all()
-
 test_that("1 event, no missing returns", {
 
   data <- ret_one_evdate
@@ -25,7 +23,6 @@ test_that("1 event, no missing returns", {
   )
 
 })
-
 
 test_that("2 events, no missing returns", {
 

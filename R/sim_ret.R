@@ -18,7 +18,6 @@
 #'   \item{eventdate}{date when the event happened}
 #'   \item{treatid}{unique identifier for each firm in the control group.
 #'   NA if firm in treatment group.}
-#
 #' }
 "ret_one_evdate"
 "ret_two_evdates_na"

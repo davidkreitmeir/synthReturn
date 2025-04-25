@@ -34,7 +34,8 @@ get_control_set <- function(
   # make sure code does not break because of an error during calculation of a specific corporation
   out <- tryCatch({
     # gen relative time variable
-    out <- cdata[, ed := eventdate]
+    out <- data.table::copy(cdata)
+    out <- out[, ed := eventdate]
     out <- out[, datenum := 1:.N, by = "cid"]
     out[, targetv := data.table::fifelse(d == ed, datenum, 0)]
     target <- out[, .(targetv = max(targetv)), by = "cid"]

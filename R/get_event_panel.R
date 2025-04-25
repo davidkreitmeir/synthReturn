@@ -25,41 +25,42 @@ NULL
 
 get_event_panel <- function(dt_treat, dt_control){
 
-  # get set of all "potential" control companies for event date
-  edate <- dt_treat[, .SD[1], by = ed][["ed"]]
-  r_event <- dt_control[ed == edate,]
+  out <- tryCatch({
+    # get set of all "potential" control companies for event date
+    edate <- dt_treat[, .SD[1], by = "ed"][["ed"]]
+    r_event <- dt_control[ed == edate,]
 
-  # get dates when treated corporation is traded
-  dates <- dt_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
-  tdates <- dates[["d"]]
-  # select control companies
-  cids <- r_event[!is.na(r) & d %in% tdates, c("cid", "d", "r")]
-  # (1) No missing trading days on days treated corporation is traded
-  cids <- cids[, tdays := 1:.N, by = "cid"]
-  cids <- cids[, .(tdays = max(tdays)), by = "cid"]
-  # control corp needs exactly the same length of observed trading days as treated corporation
-  cids <- cids[tdays >= length(tdates), "cid"][["cid"]]
-  # (2) price changes need to be observed during sample period
-  cids <- r_event[.(cids), c("cid", "r"), nomatch = NULL, on = "cid"]
-  cids <- cids[r != 0 & !is.na(r),][, .(r_var = .N), by = "cid"]
+    # get dates when treated corporation is traded
+    dates <- dt_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
+    tdates <- dates[["d"]]
+    # select control companies
+    cids <- r_event[!is.na(r), c("cid", "d", "r")][.(tdates), nomatch = NULL, on = "d"]
+    # (1) No missing trading days on days treated corporation is traded
+    cids <- cids[, tdays := 1:.N, by = "cid"]
+    cids <- cids[, .(tdays = max(tdays)), by = "cid"]
+    # control corp needs exactly the same length of observed trading days as treated corporation
+    cids <- cids[tdays >= length(tdates), "cid"][["cid"]]
+    # (2) price changes need to be observed during sample period
+    cids <- r_event[.(cids), c("cid", "r"), nomatch = NULL, on = "cid"]
+    cids <- cids[r != 0 & !is.na(r),][, .(r_var = .N), by = "cid"]
 
-  # convert ids and dates to vectors
-  cids <- cids[["cid"]]
-  # filter control corp set
-  r_event <- r_event[(d %in% tdates & cid %in% cids), c("cid",  "r", "d")]
-  r_event <- r_event[dates, on = "d"]
-  r_event <- r_event[, d := NULL][, t := 1:.N, by = "cid"]
-  # give treated firm the unique and not assigned cid = 0
-  dt_treat <- dt_treat[d %in% tdates,]
-  dt_treat[, c("tid", "ed", "d") := NULL]
-  dt_treat[, cid := 0]
-  dt_treat[, t := 1:.N]
+    # convert ids and dates to vectors
+    cids <- cids[["cid"]]
+    # filter control corp set
+    r_event <- r_event[tdates, c("cid", "r", "d"), nomatch = NULL, on = "d"][.(cids), nomatch = NULL, on = "cid"]
+    r_event[, d := NULL]
+    r_event[, t := 1:.N, by = "cid"]
+    # give treated firm the unique and not assigned cid = 0
+    dt_treat <- dt_treat[.(tdates), nomatch = NULL, on = "d"]
+    dt_treat[, c("tid", "ed", "d") := NULL]
+    dt_treat[, cid := 0L]
+    dt_treat[, t := 1:.N]
 
-  # combine data.tables
-  out <- rbindlist(list(r_event, dt_treat), use.names = TRUE)
-  out <- data.table::setorder(out, cid, t)
+    # combine data.tables
+    out <- data.table::rbindlist(list(r_event, dt_treat), use.names = TRUE)
+    data.table::setorder(out, cid, t)
+    return(out)
+  }, error = function(x) return(NULL))
 
   return(out)
 }
-
-get_event_panel <- purrr::possibly(get_event_panel, otherwise = NULL, quiet = TRUE)
