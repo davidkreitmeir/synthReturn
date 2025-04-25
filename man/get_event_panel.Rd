@@ -4,7 +4,7 @@
 \alias{get_event_panel}
 \title{Function that pre-processes returns of the control group}
 \usage{
-get_event_panel(...)
+get_event_panel(dt_treat, dt_control)
 }
 \arguments{
 \item{ed}{date of event.}

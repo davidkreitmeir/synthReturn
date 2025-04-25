@@ -4,12 +4,10 @@
 \alias{get_control_set}
 \title{Function that pre-processes returns of the control group}
 \usage{
-get_control_set(...)
+get_control_set(eventdate, cdata, estwind, eventwind, estobs_min, eventobs_min)
 }
 \arguments{
 \item{eventdate}{date of event.}
-
-\item{data}{The name of the data.table that contains the data.}
 
 \item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}}
 
@@ -17,6 +15,8 @@ get_control_set(...)
 
 \item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
 integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
+
+\item{data}{The name of the data.table that contains the data.}
 }
 \value{
 A data.table containing the following columns:

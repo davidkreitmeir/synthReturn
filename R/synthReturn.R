@@ -34,8 +34,6 @@ NULL
 #' @importFrom data.table .N
 #' @importFrom data.table :=
 #' @importFrom data.table %between%
-#' @importFrom infer rep_slice_sample
-#' @importFrom lubridate is.Date
 #'
 #' @examples
 #' # -----------------------------------------------

@@ -4,7 +4,7 @@
 \alias{ar_comp}
 \title{Function that computes AR for treated firm.}
 \usage{
-ar_comp(...)
+ar_comp(data)
 }
 \arguments{
 \item{data}{The name of the data.table that contains the data.}

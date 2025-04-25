@@ -4,15 +4,21 @@
 \alias{phi_comp_placebo}
 \title{Function that computes treatment effect for placebo treatment group.}
 \usage{
-phi_comp_placebo(...)
+phi_comp_placebo(
+  placebo_treatment_group,
+  dt_control,
+  estwind,
+  ncores,
+  is_windows
+)
 }
 \arguments{
-\item{r_treat_placebo}{Returns of placebo treatment group.}
-
 \item{dt_control}{Returns of control group (includes placebo treatment group returns.}
 
 \item{estwind}{Argument to set estimation window period in relative time to event,
 i.e. \code{c(estwind_start, estwind_end)}}
+
+\item{r_treat_placebo}{Returns of placebo treatment group.}
 }
 \value{
 A data.table containing the following columns:

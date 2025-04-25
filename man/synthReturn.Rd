@@ -17,40 +17,45 @@ synthReturn(
   eventobs_min = 1,
   placebo = TRUE,
   ngroup = 2,
-  ndraws = 25
+  ndraws = 25,
+  ncores = NULL
 )
 }
 \arguments{
 \item{data}{The name of the data.frame that contains the data. Data should be stored in the "long" format.}
 
-\item{tidname}{The name of the column containing the control unit id.}
+\item{tidname}{The name of the column containing the treated unit id.}
+
+\item{cidname}{The name of the column containing the control unit id.}
 
 \item{dname}{The name of the column containing the date variable.}
 
 \item{rname}{The name of the column containing the stock returns.}
 
-\item{edname}{The name of the column containing the (treatment firm specific) event date.}
+\item{edname}{The name of the column containing the (treatment firm-specific) event date.}
 
-\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}}
+\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}.}
 
-\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}}
+\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}.}
 
 \item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
-integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
+integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
 
-\item{placebo}{Whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}}
+\item{placebo}{Whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}.}
 
 \item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
 
-\item{ndraws}{Number of randomly drawn placebo treatment group at each (unique) event date. Has to be larger than \eqn{1}.}
+\item{ndraws}{Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.}
+
+\item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
 }
 \value{
-A list containing the following components:
+An S3 object containing the following components:
 \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if \code{placebo == TRUE}) the 90\%, 95\% and 99\% confidence intervals.}
 \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
-\item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws)}
+\item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
 }
 \description{
 \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
@@ -69,16 +74,16 @@ data(ret_two_evdates)
 # Implement the synthetic matching matching method
 
 synthReturn(
-   data = ret_two_evdates,
-   tidname = "treatid",
-   cidname = "controlid",
-   rname = "ret",
-   dname = "date",
-   edname = "eventdate",
-   estwind = c(-100,-1),
-   eventwind = c(0,5),
-   estobs_min = 1,
-   eventobs_min = 1,
+  data = ret_two_evdates,
+  tidname = "treatid",
+  cidname = "controlid",
+  rname = "ret",
+  dname = "date",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 1,
+  eventobs_min = 1,
   placebo = TRUE,
   ngroup = 2,
   ndraws = 10
@@ -101,19 +106,19 @@ data(ret_two_evdates_na)
 # the estimation and event window (Default is 1 = 100\%).
 
 synthReturn(
-   data = ret_two_evdates,
-   tidname = "treatid",
-   cidname = "controlid",
-   rname = "ret",
-   dname = "date",
-   edname = "eventdate",
-   estwind = c(-100,-1),
-   eventwind = c(0,5),
-   estobs_min = 0.9,
-   eventobs_min = 0.9,
+  data = ret_two_evdates,
+  tidname = "treatid",
+  cidname = "controlid",
+  rname = "ret",
+  dname = "date",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 0.9,
+  eventobs_min = 0.9,
   placebo = TRUE,
   ngroup = 2,
   ndraws = 10
-  )
+)
 
 }

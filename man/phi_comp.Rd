@@ -4,7 +4,7 @@
 \alias{phi_comp}
 \title{Function that computes treatment effect for treatment group.}
 \usage{
-phi_comp(r_treat, r_control)
+phi_comp(r_treat, r_control, ncores, is_windows)
 }
 \arguments{
 \item{r_treat}{Returns of placebo treatment group.}

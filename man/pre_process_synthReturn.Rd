@@ -17,7 +17,9 @@ pre_process_synthReturn(
   eventobs_min,
   placebo,
   ngroup,
-  ndraws
+  ndraws,
+  ncores,
+  is_windows
 )
 }
 \description{
