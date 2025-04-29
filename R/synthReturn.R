@@ -32,7 +32,10 @@ NULL
 #' \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
 #'
 #' @importFrom data.table .N
+#' @importFrom data.table .SD
+#' @importFrom data.table .GRP
 #' @importFrom data.table :=
+#' @importFrom data.table %chin%
 #' @importFrom data.table %between%
 #'
 #' @examples
@@ -60,7 +63,7 @@ NULL
 #'   placebo = TRUE,
 #'   ngroup = 2,
 #'   ndraws = 10
-#'   )
+#' )
 #'
 #'
 #' # -----------------------------------------------

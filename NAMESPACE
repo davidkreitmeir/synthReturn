@@ -2,5 +2,8 @@
 
 export(synthReturn)
 importFrom(data.table,"%between%")
+importFrom(data.table,"%chin%")
 importFrom(data.table,":=")
+importFrom(data.table,.GRP)
 importFrom(data.table,.N)
+importFrom(data.table,.SD)

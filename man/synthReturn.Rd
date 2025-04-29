@@ -87,7 +87,7 @@ synthReturn(
   placebo = TRUE,
   ngroup = 2,
   ndraws = 10
-  )
+)
 
 
 # -----------------------------------------------

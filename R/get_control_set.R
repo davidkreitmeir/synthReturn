@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that pre-processes returns of the control group
 #'

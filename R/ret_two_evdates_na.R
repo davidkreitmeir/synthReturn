@@ -1,7 +1,6 @@
 #' @title Simulated repeated cross-section data
 #'
-#' @description \code{sim_rc} contains 3 simulated stock return data sets
-#'
+#' @description \code{synthReturn} contains 3 simulated stock return data sets.
 #'
 #' @format The main data frame `ret_two_evdates_na` has 14000 rows and 7 variables:
 #' \describe{
@@ -19,6 +18,4 @@
 #'   \item{treatid}{unique identifier for each firm in the control group.
 #'   NA if firm in treatment group.}
 #' }
-"ret_one_evdate"
 "ret_two_evdates_na"
-"ret_two_evdates"
