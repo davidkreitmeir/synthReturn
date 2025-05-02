@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that computes AR for treated firm.
 #'
@@ -13,7 +12,7 @@ NULL
 #'  \item{sigma}{"Goodness" of fit measure.}
 #'
 
-ar_comp <- function(data){
+ar_comp <- function(data) {
 
   out <- tryCatch({
     #-----------------------------------------------------------------------------

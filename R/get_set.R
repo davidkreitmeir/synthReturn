@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that pre-processes returns of the control group
 #'
@@ -25,36 +24,44 @@ NULL
 #'  and 0 otherwise.}
 #'
 
-get_treat_set <- function(
+get_set <- function(
   out,
   estwind,
   eventwind,
   estobs_min,
-  eventobs_min
+  eventobs_min,
+  eventdate
 ) {
 
   # make sure code does not break because of an error during calculation of a specific corporation
   out <- tryCatch({
+    is_treat <- is.null(eventdate)
+    # set event date
+    if(is_treat) {
+      eventdate <- out[1L, "ed"][["ed"]]
+    }
     # get relative time variable
-    out <- out[, datenum := 1:.N, by = "tid"]
-    out[, targetv := data.table::fifelse(d == ed, datenum, 0L)]
-    target <- out[, .(targetv = max(targetv)), by = "tid"]
-    out[, targetv := NULL]
-    out <- out[target, on = "tid"]
-    out[, tau := datenum - targetv]
-    out[, c("targetv", "datenum") := NULL]
-    # indicator for event and estimation window
-    out[, c("estwind", "eventwind") := list(as.integer(tau %between% estwind), as.integer(tau %between% eventwind))]
-    out <- out[estwind == 1L | eventwind == 1L,]
-    # get number of non-missing trading days for estimation AND event windows
-    out <- out[, n_est_obs := sum(is.finite(r) & estwind == 1L), by = "tid"]
-    out <- out[, n_event_obs := sum(is.finite(r) & eventwind == 1L), by = "tid"]
-    # Drop thinly-traded firms and firms without return variance during entire sample period
-    var_ids <- out[r != 0 & is.finite(r),][, .(r_var = stats::var(r, na.rm = TRUE)), by = "tid"][r_var > 0, "tid"]
-    tids <- unique(out[(n_est_obs >= estobs_min) & (n_event_obs >= eventobs_min), "tid"])[var_ids, "tid", nomatch = NULL, on = "tid"]
+    out[, tau := (1:.N) - which(d == eventdate), by = "unit_id"]
+    # drop units not observed on event date
+    out <- na.omit(out, cols = "tau")
+    # subset to observations in event and estimation windows
+    out <- out[(tau %between% estwind) | (tau %between% eventwind),]
+    # subset to units with enough observations in estimation window
+    keep_units <- out[tau %between% estwind, .(n_est_obs = .N), by = "unit_id"][n_est_obs >= estobs_min, "unit_id"]
+    out <- out[keep_units, nomatch = NULL, on = "unit_id"]
+    # subset to units with enough observations in event window
+    keep_units <- out[tau %between% eventwind, .(n_event_obs = .N), by = "unit_id"][n_event_obs >= eventobs_min, "unit_id"]
+    out[, tau := NULL]
+    out <- out[keep_units, nomatch = NULL, on = "unit_id"]
+    # subset to units with return variance during entire sample period
+    keep_units <- out[, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][r_var > 0, "unit_id"]
+    out <- out[keep_units, nomatch = NULL, on = "unit_id"]
+    # set the event date in control group
+    if(!is_treat) {
+      out[, ed := eventdate]
+    }
 
-    # return "event panels" of firms in treatment group for event d
-    out <- out[tids, c("tid", "d", "ed", "r", "estwind", "eventwind"), nomatch = NULL, on = "tid"]
+    # return "event panels" of units in treatment group for event d
     return(out)
   }, error = function(x) return(NULL))
 

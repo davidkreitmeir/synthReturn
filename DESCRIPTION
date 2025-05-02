@@ -1,7 +1,7 @@
 Package: synthReturn
 Type: Package
 Title: Synthetic Matching Method for Returns
-Version: 0.1.1
+Version: 0.2.0
 Authors@R: person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre"))
 Description: Implements the synthetic matching method originally suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2020) to accommodate 
   multiple event dates and missing values.
@@ -16,7 +16,7 @@ Imports:
   stats,
   utils,
   corpcor (>= 1.6.10),
-  data.table (>= 1.14.2),
+  data.table,
   quadprog (>= 1.5),
   parallel,
   mirai

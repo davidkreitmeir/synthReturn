@@ -14,10 +14,10 @@
 
 phi_comp <- function(r_treat, r_control, ncores, is_windows) {
 
-  # save mapping of treatment ID (`tid`) to row ID (`rid`)
-  tid_rid_map <- unique(r_treat[, "tid"])
-  tid_rid_map[, rid := 1:.N]
-  r_treat <- split(r_treat, by = "tid")
+  # save mapping of unit ID to row ID (`rid`)
+  unit_id_rid_map <- unique(r_treat[, "unit_id"])
+  unit_id_rid_map[, rid := 1:.N]
+  r_treat <- split(r_treat, by = "unit_id")
 
   if(ncores == 1L) {
     # obtain event panel for each treatment group
@@ -33,7 +33,6 @@ phi_comp <- function(r_treat, r_control, ncores, is_windows) {
     )
   } else {
     if(is_windows) {
-      mirai::daemons(ncores)
       event_panels <- mirai::mirai_map(
         r_treat,
         get_event_panel,
@@ -45,7 +44,6 @@ phi_comp <- function(r_treat, r_control, ncores, is_windows) {
         event_panels,
         ar_comp
       )[]
-      mirai::daemons(0L)
     } else {
       event_panels <- parallel::mclapply(
         r_treat,
@@ -67,17 +65,13 @@ phi_comp <- function(r_treat, r_control, ncores, is_windows) {
   data.table::setorder(ARs, rid, tau)
   # compute cumulative abnormal returns (CARs) and sigma
   ARs[, car := cumsum(ar), by = "rid"]
-  ARs[, car_wgted := car/sigma]
-  ARs[, one_div_sigma := 1/sigma]
+  ARs[, c("car_wgted", "one_div_sigma") := list(car / sigma, 1 / sigma)]
   # filter out CARs or sigma's that are infinite or missing (perfect prediction by synthetic returns)
   ARs <- ARs[is.finite(car_wgted) & is.finite(one_div_sigma),]
   # compute phi - equ. (7)
-  phi <- ARs[, .(num = sum(car_wgted), den = sum(one_div_sigma)), by = "tau"]
-  phi[, phi := num/den]
-  phi[, c("num", "den") := NULL]
+  phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
   # map treatment IDs back to ARs
-  ARs <- ARs[tid_rid_map, on = "rid"]
-  ARs <- ARs[, c("tid", "tau", "ar", "sigma")]
+  ARs <- ARs[unit_id_rid_map, c("unit_id", "tau", "ar", "sigma"), on = "rid"]
   out <- list(phi = phi, ar = ARs)
 
   return(out)

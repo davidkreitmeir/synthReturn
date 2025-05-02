@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that pre-processes returns of the control group
 #'
@@ -34,27 +33,24 @@ get_event_panel <- function(dt_treat, dt_control){
     dates <- dt_treat[!is.na(r) & is.finite(r), c("d", "eventwind", "estwind")]
     tdates <- dates[["d"]]
     # select control companies
-    cids <- r_event[!is.na(r), c("cid", "d", "r")][.(tdates), nomatch = NULL, on = "d"]
+    cids <- r_event[!is.na(r), c("unit_id", "d", "r")][.(tdates), nomatch = NULL, on = "d"]
     # (1) No missing trading days on days treated corporation is traded
-    cids <- cids[, tdays := 1:.N, by = "cid"]
-    cids <- cids[, .(tdays = max(tdays)), by = "cid"]
+    cids <- cids[, tdays := 1:.N, by = "unit_id"]
+    cids <- cids[, .(tdays = max(tdays)), by = "unit_id"]
     # control corp needs exactly the same length of observed trading days as treated corporation
-    cids <- cids[tdays >= length(tdates), "cid"][["cid"]]
+    cids <- cids[tdays >= length(tdates), "unit_id"][["unit_id"]]
     # (2) price changes need to be observed during sample period
-    cids <- r_event[.(cids), c("cid", "r"), nomatch = NULL, on = "cid"]
-    cids <- cids[r != 0 & !is.na(r),][, .(r_var = .N), by = "cid"]
+    cids <- r_event[.(cids), c("unit_id", "r"), nomatch = NULL, on = "unit_id"]
+    cids <- cids[is.finite(r),][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][r_var > 0, "unit_id"]
 
-    # convert ids and dates to vectors
-    cids <- cids[["cid"]]
     # filter control corp set
-    r_event <- r_event[tdates, c("cid", "r", "d"), nomatch = NULL, on = "d"][.(cids), nomatch = NULL, on = "cid"]
+    r_event <- r_event[tdates, c("unit_id", "r", "d"), nomatch = NULL, on = "d"][cids, nomatch = NULL, on = "unit_id"]
     r_event[, d := NULL]
-    r_event[, t := 1:.N, by = "cid"]
+    r_event[, t := 1:.N, by = "unit_id"]
     # give treated firm the unique and not assigned cid = 0
     dt_treat <- dt_treat[.(tdates), nomatch = NULL, on = "d"]
-    dt_treat[, c("tid", "ed", "d") := NULL]
-    dt_treat[, cid := 0L]
-    dt_treat[, t := 1:.N]
+    dt_treat[, c("unit_id", "ed", "d") := NULL]
+    dt_treat[, c("cid", "t") := list(0L, 1:.N)]
 
     # combine data.tables
     out <- data.table::rbindlist(list(r_event, dt_treat), use.names = TRUE)

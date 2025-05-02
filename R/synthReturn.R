@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that
 #'
@@ -7,19 +6,22 @@ NULL
 #'  accommodate multiple event dates and missing values.
 #'
 #' @param data The name of the data.frame that contains the data. Data should be stored in the "long" format.
+#' @param unitname The name of the column containing numeric IDs of treated and control units.
+#' @param treatname The name of the indicator column set to `TRUE` for the treatment group and to `FALSE` for the control group. The column's values must
+#' be time-constant within a unit because they mark whether a unit was ever treated.
 #' @param tidname The name of the column containing the treated unit id.
 #' @param cidname The name of the column containing the control unit id.
 #' @param dname The name of the column containing the date variable.
 #' @param rname The name of the column containing the stock returns.
 #' @param edname The name of the column containing the (treatment firm-specific) event date.
-#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`.
-#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`.
+#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`. 0 is the event date.
+#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`. 0 is the event date.
 #' @param estobs_min Argument to define minimum number of trading days during the estimation window.
 #' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days
 #' are allowed.
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
-#' @param placebo Whether inference via placebo treatment group effects should be drawn. Default is `TRUE`.
+#' @param placebo Logical denoting whether inference via placebo treatment group effects should be drawn. Default is `TRUE`.
 #' @param ndraws Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
@@ -101,8 +103,8 @@ NULL
 #' @export
 synthReturn <- function(
   data,
-  tidname,
-  cidname,
+  unitname,
+  treatname,
   dname,
   rname,
   edname,
@@ -119,17 +121,21 @@ synthReturn <- function(
   # Parallel setting
   if(is.null(ncores)) {
     ncores <- parallel::detectCores()
-  } else if(length(ncores) != 1L || ncores < 1) {
+  } else if(length(ncores) != 1L || ncores < 1L) {
     stop("ncores must be either NULL or a positive integer")
   }
   is_windows <- .Platform$OS.type == "windows"
+  if(is_windows && ncores != 1L) {
+    mirai::daemons(ncores)
+    mirai::everywhere(require("data.table"))
+  }
 
   #-----------------------------------------------------------------------------
   # Pre-process data
   dp <- pre_process_synthReturn(
-    data = data,
-    tidname = tidname,
-    cidname = cidname,
+    DT = data,
+    unitname = unitname,
+    treatname = treatname,
     rname = rname,
     dname = dname,
     edname = edname,
@@ -147,8 +153,8 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Implement the methods
 
-  r_treat = dp[[1L]]
-  r_control = dp[[2L]]
+  r_treat <- dp[[1L]]
+  r_control <- dp[[2L]]
   rm(dp)
 
   # Compute average treatment effect `phi` (for "actual" treatment group)
@@ -160,37 +166,52 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
 
-  if(placebo){
+  if(placebo) {
 
-    # number of treated corporations
-    n_treat <- data.table::uniqueN(r_treat, by = "tid")
+    # number of treated units
+    n_treat <- data.table::uniqueN(r_treat, by = "unit_id")
 
-    cid_placebo <- r_control[, .SD[1], by = c("cid", "ed")]
-    cid_placebo[, c("r", "d") := NULL]
-    ed_placebo <- cid_placebo[, ntotal := 1:.N, by = "ed"]
+    cid_placebo <- unique(r_control[, c("unit_id", "ed")])
     # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
     ngroup_min <- floor(ngroup*n_treat)
-    ed_placebo <- ed_placebo[, .(ntotal = max(ntotal)), by = "ed"][ntotal >= ngroup_min, "ed"]
-    # final set of placebo event dates (and potentially placebo treated firms)
-    cid_placebo <- cid_placebo[ed_placebo, c("cid", "ed"), nomatch = NULL, on = "ed"]
+    ed_placebo <- cid_placebo[, .(ntotal = .N), by = "ed"][ntotal >= ngroup_min, "ed"]
+    # final set of placebo event dates (and potentially placebo treated units)
+    cid_placebo <- cid_placebo[ed_placebo, nomatch = NULL, on = "ed"]
     rm(ed_placebo)
 
-    # `ndraws` random draws of placebo treatment groups of size `n` (with replacement)
-    # for each (unique) event date.
-    pids <- data.table::rbindlist(
-      lapply(
-        split(cid_placebo, by = "ed"),
-        function(dt, n_treat, ndraws) {
-          sampled_dt <- dt[as.vector(vapply(1:ndraws, sample.int, integer(n_treat), n = nrow(dt), size = n_treat, replace = TRUE)),]
-          sampled_dt[, replicate := rep(1:ndraws, each = n_treat)]
-          return(sampled_dt)
-        },
-        n_treat = n_treat,
-        ndraws = ndraws
-      ),
-      use.names = TRUE,
-      idcol = "edid"
-    )
+    # `ndraws` random draws of placebo treatment groups of size `n` (with replacement) for each (unique) event date
+    if(is_windows || ncores == 1L) {
+      pids <- data.table::rbindlist(
+        lapply(
+          split(cid_placebo, by = "ed"),
+          function(dt, n_treat, ndraws) {
+            sampled_dt <- dt[as.vector(vapply(1:ndraws, sample.int, integer(n_treat), n = nrow(dt), size = n_treat, replace = TRUE)),]
+            sampled_dt[, replicate := rep(1:ndraws, each = n_treat)]
+            return(sampled_dt)
+          },
+          n_treat = n_treat,
+          ndraws = ndraws
+        ),
+        use.names = TRUE,
+        idcol = "edid"
+      )
+    } else {
+      pids <- data.table::rbindlist(
+        parallel::mclapply(
+          split(cid_placebo, by = "ed"),
+          function(dt, n_treat, ndraws) {
+            sampled_dt <- dt[as.vector(vapply(1:ndraws, sample.int, integer(n_treat), n = nrow(dt), size = n_treat, replace = TRUE)),]
+            sampled_dt[, replicate := rep(1:ndraws, each = n_treat)]
+            return(sampled_dt)
+          },
+          n_treat = n_treat,
+          ndraws = ndraws,
+          mc.cores = ncores
+        ),
+        use.names = TRUE,
+        idcol = "edid"
+      )
+    }
     # generate unique placebo id (pid = ndraws x number_of_event_dates)
     pids <- pids[, pid := .GRP, by = c("edid", "replicate")]
     pids <- pids[, c("edid", "replicate") := NULL]
@@ -209,6 +230,10 @@ synthReturn <- function(
     )
     rm(pids)
 
+    if(is_windows && ncores != 1L) {
+      mirai::daemons(0L)
+    }
+
     # get number of placebo treatment effects
     n_placebo <- data.table::uniqueN(phi_placebo, by = "pid")
 
@@ -217,18 +242,17 @@ synthReturn <- function(
     phi_CI95 = phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
     phi_CI99 = phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
-    # create "output" table
-    restab <- res[["phi"]]
-    restab <- restab[phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"]
-
     # return all information of interest
-    out = list(ate = restab, ar = res[["ar"]], placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo))
+    out <- list(
+      ate = res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"],
+      ar = res[["ar"]],
+      placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo)
+    )
 
   } else {
 
     # return all information of interest (no CIs)
-    restab <- res[["phi"]]
-    out <- list(ate = restab, ar = res[["ar"]], placebo = list(phi_placebo = NULL, n_placebo = NULL))
+    out <- list(ate = res[["phi"]], ar = res[["ar"]], placebo = list(phi_placebo = NULL, n_placebo = NULL))
 
   }
 
@@ -236,7 +260,8 @@ synthReturn <- function(
   call.param <- match.call()
   # Record all arguments used in the function
   argu <- mget(names(formals()), sys.frame(sys.nframe()))
-  argu <- list(
+
+  out[["arg"]] <- list(
     estwind = argu$estwind,
     eventwind = argu$eventwind,
     estobs_min = argu$estobs_min,
@@ -245,12 +270,9 @@ synthReturn <- function(
     ndraws = argu$ndraws
   )
 
-  out <- append(out, list(arg = argu))
-
   # Define a new class
   class(out) <- "synthReturn"
 
   return(out)
-
 }
 

@@ -1,4 +1,3 @@
-NULL
 ###################################################################################
 #' Function that computes treatment effect for placebo treatment group.
 #'
@@ -20,12 +19,12 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
   out <- tryCatch({
     # get key information on placebo treatment group
     edate <- unique(placebo_treatment_group[, "ed"])[["ed"]]
-    tids <- unique(placebo_treatment_group[, "cid"])
+    tids <- unique(placebo_treatment_group[, "unit_id"])
 
     # get returns of placebo treatment firms
-    r_treat_placebo <- dt_control[ed == edate,][tids, nomatch = NULL, on = "cid"]
-    r_treat_placebo[, tid := .GRP, by = "cid"]
-    r_treat_placebo[, cid := NULL]
+    r_treat_placebo <- dt_control[ed == edate,][tids, nomatch = NULL, on = "unit_id"]
+    r_treat_placebo[, tid := .GRP, by = "unit_id"]
+    r_treat_placebo[, unit_id := NULL]
 
     # add event and estimation window
     estwindlen <- abs(estwind[1L] - estwind[2L]) + 1L
@@ -37,7 +36,7 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
     r_treat_placebo <- split(r_treat_placebo, by = "tid")
 
     # drop placebo treated companies from control group
-    r_control_placebo <- dt_control[ed == edate,][!tids, on = "cid"]
+    r_control_placebo <- dt_control[ed == edate,][!tids, on = "unit_id"]
 
     if(ncores == 1L) {
       # obtain event panel for each treatment group
@@ -57,7 +56,6 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
       )
     } else {
       if(is_windows) {
-        mirai::daemons(ncores)
         event_panels <- mirai::mirai_map(
           r_treat_placebo,
           get_event_panel,
@@ -73,7 +71,6 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
           use.names = TRUE,
           idcol = "rid"
         )
-        mirai::daemons(0L)
       } else {
         event_panels <- parallel::mclapply(
           r_treat_placebo,
@@ -105,8 +102,6 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
     phi <- ARs[, .(num = sum(car_wgted), den = sum(one_div_sigma)), by = "tau"]
     phi[, phi := num/den]
     phi <- phi[, c("tau", "phi")]
-    # ARs <- ARs[, c("rid", "tau", "ar", "sigma")]
-    # out <- list(phi = phi, ar = ARs)
     return(phi)
   }, error = function(x) return(NULL))
 
