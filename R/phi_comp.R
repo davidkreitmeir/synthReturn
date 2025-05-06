@@ -21,46 +21,45 @@ phi_comp <- function(r_treat, r_control, ncores, is_windows) {
 
   if(ncores == 1L) {
     # obtain event panel for each treatment group
-    event_panels <- lapply(
-      r_treat,
-      get_event_panel,
-      dt_control = r_control
-    )
     # compute abnormal returns (ARs) for each placebo treatment group firm
-    ARs <- lapply(
-      event_panels,
-      ar_comp
+    ARs <- data.table::rbindlist(
+      lapply(
+        r_treat,
+        event_panel,
+        dt_control = r_control
+      ),
+      use.names = TRUE,
+      idcol = "rid"
     )
   } else {
     if(is_windows) {
-      event_panels <- mirai::mirai_map(
-        r_treat,
-        get_event_panel,
-        .args = list(
-          dt_control = r_control
-        )
-      )[]
-      ARs <- mirai::mirai_map(
-        event_panels,
-        ar_comp
-      )[]
-    } else {
-      event_panels <- parallel::mclapply(
-        r_treat,
-        get_event_panel,
-        dt_control = r_control,
-        mc.cores = ncores
+      ARs <- data.table::rbindlist(
+        mirai::mirai_map(
+          r_treat,
+          event_panel,
+          .args = list(
+            dt_control = r_control
+          ),
+          .compute = "synthReturn"
+        )[],
+        use.names = TRUE,
+        idcol = "rid"
       )
-      ARs <- parallel::mclapply(
-        event_panels,
-        ar_comp,
-        mc.cores = ncores
+    } else {
+      ARs <- data.table::rbindlist(
+        parallel::mclapply(
+          r_treat,
+          event_panel,
+          dt_control = r_control,
+          mc.cores = ncores
+        ),
+        use.names = TRUE,
+        idcol = "rid"
       )
     }
   }
 
   # compute phi for "actual" treatment group
-  ARs <- data.table::rbindlist(ARs, use.names = TRUE, idcol = "rid")
   ARs[, rid := as.numeric(rid)]
   data.table::setorder(ARs, rid, tau)
   # compute cumulative abnormal returns (CARs) and sigma

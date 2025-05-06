@@ -12,46 +12,38 @@
 #'  \item{sigma}{"Goodness" of fit measure.}
 #'
 
-ar_comp <- function(data) {
+ar_comp <- function(data_treat, data_control) {
 
   out <- tryCatch({
     #-----------------------------------------------------------------------------
     # Pre-process data
 
-    # Note: treated corporation has cid == 0
-    data.table::setorder(data, cid, t)
+    # data: unit_id, r, t (sorted by unit_id, t)
+
+    # Note: treated corporation has unit_id == 0
     # Grab "effective" length of windows
-    estwindlen <- nrow(data[cid == 0 & estwind == 1L,])
-    # eventwindlen <- nrow(data[cid == 0 & eventwind,])
+    estwindlen <- nrow(data_treat[estwind == 1L,])
 
     # Control firm returns during estimation window
-    R_est <- data[(cid > 0 & estwind == 1L), c("cid", "r", "t")]
-    R_est <- data.table::dcast(R_est, t ~ cid, value.var = "r")
+    R_est <- data_control[estwind == 1L, c("unit_id", "r", "t")]
+    R_est <- data.table::dcast(R_est, t ~ unit_id, value.var = "r")
     R_est[, t := NULL]
     R_est <- as.matrix(R_est)
     # and estimation & event window
-    R <- data[(cid > 0 & (estwind == 1 | eventwind == 1)), c("cid", "r", "t")]
-    R <- data.table::dcast(R, t ~ cid, value.var = "r")
+    R <- data.table::dcast(data_control, t ~ unit_id, value.var = "r")
     R[, t := NULL]
     R <- as.matrix(R)
-
-    # Returns of treated firm during estimation ...
-    r_est <- data[(cid == 0 & estwind == 1L), "r"][["r"]]
-
-    # and estimation & event window
-    r <- data[(cid == 0 & (estwind == 1L | eventwind == 1L)), "r"][["r"]]
-    rm(data)
 
     #-----------------------------------------------------------------------------
     # Solve quadratic programming problem
 
     # Matrix appearing in the quadratic function to be minimized
-    D <- t(R_est) %*% R_est
+    D <- crossprod(R_est)
     # vector appearing in the quadratic function to be minimized
-    d <- t(R_est) %*% r_est
-    rm(R_est, r_est)
+    d <- crossprod(R_est, data_treat[estwind == 1L, "r"][["r"]])
+    rm(R_est)
     # matrix defining the constraints under which we want to minimize the quadratic function (LHS)
-    # here: weights need to sum up to 1 and each weight has to be >= 0
+    # Here: weights need to sum up to 1 and each weight has to be >= 0
     nd <- length(d)
     A <- cbind(rep.int(1, nd), diag(nd))
     # vector holding the values of RHS
@@ -64,27 +56,26 @@ ar_comp <- function(data) {
       D <- corpcor::make.positive.definite(D)
     }
 
-    # solve quadratic programming problem
+    # Solve quadratic programming problem
     w1 <- quadprog::solve.QP(D, d, A, b0, meq = 1)[["solution"]]
 
     #-----------------------------------------------------------------------------
     # Compute abnormal returns and "goodness" of match
 
     # Compute synthetic control return series: R %*% w1
-    # compute abnormal returns
-    ars <- data.table::data.table(synth = R %*% w1, treated = r)
+    # Compute abnormal returns
+    ars <- data.table::data.table(ar = data_treat[["r"]] - (R %*% w1))
     rm(R, w1)
-    ars[, ar := treated - synth]
-    # compute sigma ("goodness" of match)
+    # Compute sigma ("goodness" of match)
     ars[, sigma := sigmafun(ars[1:estwindlen, "ar"][["ar"]])]
-    # add event window indicator
+    # Add event window indicator
     ars[, row := 1:.N]
     ars[, eventwind := as.integer(row > estwindlen)]
-    # add relative time
+    # Add relative time
     ars[, tau := row - (estwindlen + 1L)]
     ars[, row := NULL]
 
-    # keep only ARs during event window
+    # Keep only ARs during event window
     out <- ars[eventwind == 1L, c("tau", "ar", "sigma")]
     return(out)
   }, error = function(x) return(NULL))

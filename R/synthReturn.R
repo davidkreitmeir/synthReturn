@@ -157,7 +157,7 @@ synthReturn <- function(
   }
   is_windows <- .Platform$OS.type == "windows"
   if(is_windows && ncores != 1L) {
-    mirai::daemons(ncores)
+    mirai::daemons(ncores, .compute = "synthReturn")
     mirai::everywhere(require("data.table"))
   }
 
@@ -249,20 +249,33 @@ synthReturn <- function(
     pids <- split(pids, by = "pid")
 
     # compute treatment effect for all placebo treatment groups
-    phi_placebo <- data.table::rbindlist(
-      lapply(
-        pids,
-        phi_comp_placebo,
-        dt_control = r_control,
-        estwind = estwind
-      ),
-      use.names = TRUE,
-      idcol = "pid"
-    )
+    if(ncores == 1L) {
+      phi_placebo <- data.table::rbindlist(
+        lapply(
+          pids,
+          phi_comp_placebo,
+          dt_control = r_control,
+          estwind = estwind
+        ),
+        use.names = TRUE,
+        idcol = "pid"
+      )
+    } else {
+      phi_placebo <- data.table::rbindlist(
+        lapply(
+          pids,
+          phi_comp_placebo,
+          dt_control = r_control,
+          estwind = estwind
+        ),
+        use.names = TRUE,
+        idcol = "pid"
+      )
+    }
     rm(pids)
 
     if(is_windows && ncores != 1L) {
-      mirai::daemons(0L)
+      mirai::daemons(0L, .compute = "synthReturn")
     }
 
     # get number of placebo treatment effects

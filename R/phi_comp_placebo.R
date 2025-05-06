@@ -16,10 +16,12 @@
 
 phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncores, is_windows) {
 
+  # add parameter that lets users decide on which level to parallelize
+
   out <- tryCatch({
     # get key information on placebo treatment group
-    edate <- unique(placebo_treatment_group[, "ed"])[["ed"]]
-    tids <- unique(placebo_treatment_group[, "unit_id"])
+    edate <- unique(placebo_treatment_group[, "ed"])[["ed"]] # always one value
+    tids <- unique(placebo_treatment_group[, "unit_id"]) # can be multiple
 
     # get returns of placebo treatment firms
     r_treat_placebo <- dt_control[ed == edate,][tids, nomatch = NULL, on = "unit_id"]
@@ -38,57 +40,17 @@ phi_comp_placebo <- function(placebo_treatment_group, dt_control, estwind, ncore
     # drop placebo treated companies from control group
     r_control_placebo <- dt_control[ed == edate,][!tids, on = "unit_id"]
 
-    if(ncores == 1L) {
-      # obtain event panel for each treatment group
-      event_panels <- lapply(
+    # obtain event panel for each treatment group
+    # compute abnormal returns (ARs) for each placebo treatment group firm
+    ARs <- data.table::rbindlist(
+      lapply(
         r_treat_placebo,
-        get_event_panel,
+        event_panel,
         dt_control = r_control_placebo
-      )
-      # compute abnormal returns (ARs) for each placebo treatment group firm
-      ARs <- data.table::rbindlist(
-        lapply(
-          event_panels,
-          ar_comp
-        ),
-        use.names = TRUE,
-        idcol = "rid"
-      )
-    } else {
-      if(is_windows) {
-        event_panels <- mirai::mirai_map(
-          r_treat_placebo,
-          get_event_panel,
-          .args = list(
-            dt_control = r_control_placebo
-          )
-        )[]
-        ARs <- data.table::rbindlist(
-          mirai::mirai_map(
-            event_panels,
-            ar_comp
-          )[],
-          use.names = TRUE,
-          idcol = "rid"
-        )
-      } else {
-        event_panels <- parallel::mclapply(
-          r_treat_placebo,
-          get_event_panel,
-          dt_control = r_control_placebo,
-          mc.cores = ncores
-        )
-        ARs <- data.table::rbindlist(
-          parallel::mclapply(
-            event_panels,
-            ar_comp,
-            mc.cores = ncores
-          ),
-          use.names = TRUE,
-          idcol = "rid"
-        )
-      }
-    }
+      ),
+      use.names = TRUE,
+      idcol = "rid"
+    )
 
     # compute phi for "actual" treatment group
     ARs[, rid := as.numeric(rid)]

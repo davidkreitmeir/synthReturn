@@ -297,7 +297,8 @@ pre_process_synthReturn <- function(
             estobs_min = estobs_min,
             eventobs_min = eventobs_min,
             eventdate = NULL
-          )
+          ),
+          .compute = "synthReturn"
         )[]
       )
     } else {
@@ -342,7 +343,8 @@ pre_process_synthReturn <- function(
             eventwind = eventwind,
             estobs_min = estobs_min,
             eventobs_min = eventobs_min
-          )
+          ),
+          .compute = "synthReturn"
         )[]
       )
     } else {
