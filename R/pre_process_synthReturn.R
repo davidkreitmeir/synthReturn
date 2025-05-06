@@ -89,23 +89,44 @@ pre_process_synthReturn <- function(
   }
 
   # make sure IDs are numeric
-  if(!is.numeric(DT[[unitname]])) {
-    stop("data[, unitname] must be numeric. Please convert it.")
+  unit_is_numeric <- is.numeric(DT[[unitname]])
+  if(unit_is_numeric) {
+    unit_min <- min(DT[[unitname]], na.rm = TRUE)
+    unit_offset <- data.table::fifelse(unit_min < 1L, abs(unit_min) + 1L, 0L)
+  } else {
+    if(anyNA(DT[[unitname]])) {
+      stop("data[, unitname] must not contain NAs.")
+    }
+    unit_id_conv <- unique(DT[, unitname])
+    data.table::setnames(unit_id_conv, "unit_id")
+    data.table::setkey(unit_id_conv, unit_id)
+    unit_id_conv[, unit_num := 1:.N]
   }
 
   # make sure treatment indicator is logical
   if(!is.logical(DT[[treatname]])) {
-    stop("data[, unitname] must be numeric. Please convert it.")
+    stop("data[, treatname] must be logical. Please convert it.")
   }
 
-  # make sure dates are of format date
-  if(!is.numeric(DT[[dname]])) {
-    stop("data[, dname] must be of format date. Please convert it.")
-  }
-
-  # make sure edname is of format date
-  if(!is.numeric(DT[[edname]])) {
-    stop("data[, edname] must be of format dname. Please convert it.")
+  # make sure the date variables are either of format date or numeric
+  date_is_date <- inherits(DT[[dname]], "Date")
+  if(date_is_date) {
+    if(!inherits(DT[[edname]], "Date")) {
+      stop("If data[, dname] is of format date, data[, dname] must be of format date as well.")
+    }
+    date_conv <- unique(DT[, dname])
+    data.table::setnames(date_conv, "d")
+    data.table::setkey(date_conv, d)
+    date_conv[, date_num = 1:.N]
+  } else {
+    # make sure dates are of format numeric
+    if(!is.numeric(DT[[dname]])) {
+      stop("data[, dname] must be of format date. Please convert it.")
+    }
+    # make sure edname is of format numeric
+    if(!is.numeric(DT[[edname]])) {
+      stop("data[, edname] must be of format dname. Please convert it.")
+    }
   }
 
   # make sure returns are numeric
@@ -196,10 +217,32 @@ pre_process_synthReturn <- function(
   # Return variable will be denoted by r
   # date variable will be denoted by d
   # event date variable will be denoted by ed
-  # treatment group identifier will be denoted by tid
-  # control group identifier will be denoted by cid
+  # unit variable will be denoted by unit_id
   data.table::setnames(r_treat, c(rname, dname, edname, unitname), c("r", "d", "ed", "unit_id"))
   data.table::setnames(r_control, c(rname, dname, unitname), c("r", "d", "unit_id"))
+
+  # convert date to numeric format
+  if(date_is_date) {
+    r_treat <- date_conv[r_treat, c("r", "date_num", "ed", "unit_id"), on = "d"]
+    data.table::setnames(r_treat, "date_num", "d")
+    r_treat <- date_conv[r_treat, c("r", "d", "date_num", "unit_id"), on = c("d" = "ed")]
+    data.table::setnames(r_treat, "date_num", "ed")
+    r_control <- date_conv[r_treat, c("r", "date_num", "unit_id"), on = "d"]
+    data.table::setnames(r_treat, "date_num", "d")
+  }
+
+  # convert unit id to numeric strictly positive format
+  if(unit_is_numeric) {
+    if(unit_offset != 0L) {
+      r_treat[, unit_id := unit_id + unit_offset]
+      r_control[, unit_id := unit_id + unit_offset]
+    }
+  } else {
+    r_treat <- unit_id_conv[r_treat, c("r", "d", "ed", "unit_num"), on = "unit_id"]
+    data.table::setnames(r_treat, "unit_num", "unit_id")
+    r_control <- unit_id_conv[r_control, c("r", "d", "unit_num"), on = "unit_id"]
+    data.table::setnames(r_control, "unit_num", "unit_id")
+  }
 
   # Subset to finite values
   nr_DT_pre <- nrow(r_treat)
@@ -222,8 +265,8 @@ pre_process_synthReturn <- function(
   }
 
   # sort data with respect to id and time
-  data.table::setorder(r_treat, unit_id, d)
-  data.table::setorder(r_control, unit_id, d)
+  data.table::setkey(r_treat, unit_id, d)
+  data.table::setkey(r_control, unit_id, d)
 
   #-----------------------------------------------------------------------------
   # setup data in required form

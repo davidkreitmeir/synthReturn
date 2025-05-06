@@ -5,20 +5,22 @@
 #'  matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 #'  accommodate multiple event dates and missing values.
 #'
-#' @param data The name of the data.frame that contains the data. Data should be stored in the "long" format.
-#' @param unitname The name of the column containing numeric IDs of treated and control units.
+#' @param data The name of the data frame that contains the data.
+#' @param unitname The name of the column containing IDs of treated and control units.
 #' @param treatname The name of the indicator column set to `TRUE` for the treatment group and to `FALSE` for the control group. The column's values must
 #' be time-constant within a unit because they mark whether a unit was ever treated.
-#' @param tidname The name of the column containing the treated unit id.
-#' @param cidname The name of the column containing the control unit id.
-#' @param dname The name of the column containing the date variable.
+#' @param dname The name of the column containing the date variable. The column must either be of type `Date` or numeric. `Date` is internally converted to
+#' numeric. See details.
 #' @param rname The name of the column containing the stock returns.
-#' @param edname The name of the column containing the (treatment firm-specific) event date.
-#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`. 0 is the event date.
-#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`. 0 is the event date.
+#' @param edname The name of the column containing the (treatment unit-specific) event date. All event dates must also exist as dates in `dname`. The
+#' column must either be of type `Date` or numeric. `Date` is internally converted to numeric. Event date values are ignored for control group units. See
+#' details.
+#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`. 0 is the event date. See
+#' details.
+#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`. 0 is the event date. See
+#' details.
 #' @param estobs_min Argument to define minimum number of trading days during the estimation window.
-#' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days
-#' are allowed.
+#' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param placebo Logical denoting whether inference via placebo treatment group effects should be drawn. Default is `TRUE`.
@@ -27,10 +29,39 @@
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
 #'
+#' @details If the `dname` column is of `Date` type, the function creates a numeric representation by enumerating the dates existing in the data. I.e., it
+#' creates
+#'
+#' |     dname_date | | dname_num|
+#' |---------------:|-|---------:|
+#' |12/12/2024      | |         1|
+#' |13/12/2024      | |         2|
+#' |16/12/2024      | |         3|
+#' |17/12/2024      | |         4|
+#'
+#' and NOT
+#'
+#' |     dname_date | | dname_num|
+#' |---------------:|-|---------:|
+#' |12/12/2024      | |         1|
+#' |13/12/2024      | |         2|
+#' |16/12/2024      | |         5|
+#' |17/12/2024      | |         6|
+#'
+#' It only counts observed days because this is the desired behavior in many use cases. Financial researchers, e.g., often only take trading days into
+#' account and understand Monday as the next day after the previous Friday, since there is no stock trading on weekends.
+#'
+#' `estwind` and `eventwind` refer to those numeric values. Hence, in case a unit is treated on 16/12/2024, that date is day 0 in `estwind` and
+#' `eventwind`. And the 13/12/2024 is day -1.
+#'
+#' If you want unobserved days to be counted, do not pass a column of `Date` type. Directly use a numeric column.
+#'
 #' @return An S3 object containing the following components:
 #' \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if `placebo == TRUE`) the 90%, 95% and 99% confidence intervals.}
-#' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
-#' \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
+#' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the
+#' (actual) treatment group.}
+#' \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment
+#' groups.}
 #' \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
 #'
 #' @importFrom data.table .N
@@ -253,7 +284,6 @@ synthReturn <- function(
 
     # return all information of interest (no CIs)
     out <- list(ate = res[["phi"]], ar = res[["ar"]], placebo = list(phi_placebo = NULL, n_placebo = NULL))
-
   }
 
   # record the call

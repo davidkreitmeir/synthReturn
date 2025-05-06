@@ -5,9 +5,9 @@
 \title{Function that pre-process the data to use with synthReturn}
 \usage{
 pre_process_synthReturn(
-  data,
-  tidname,
-  cidname,
+  DT,
+  unitname,
+  treatname,
   rname,
   dname,
   edname,

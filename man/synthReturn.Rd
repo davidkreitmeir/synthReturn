@@ -6,8 +6,8 @@
 \usage{
 synthReturn(
   data,
-  tidname,
-  cidname,
+  unitname,
+  treatname,
   dname,
   rname,
   edname,
@@ -24,24 +24,31 @@ synthReturn(
 \arguments{
 \item{data}{The name of the data.frame that contains the data. Data should be stored in the "long" format.}
 
-\item{tidname}{The name of the column containing the treated unit id.}
+\item{unitname}{The name of the column containing IDs of treated and control units. If the column is not numeric with all values larger than 0, the
+function internally converts it to that format.}
 
-\item{cidname}{The name of the column containing the control unit id.}
+\item{treatname}{The name of the indicator column set to \code{TRUE} for the treatment group and to \code{FALSE} for the control group. The column's values must
+be time-constant within a unit because they mark whether a unit was ever treated.}
 
-\item{dname}{The name of the column containing the date variable.}
+\item{dname}{The name of the column containing the date variable. The column must either be of type \code{Date} or numeric. \code{Date} is internally converted to
+numeric. See details.}
 
 \item{rname}{The name of the column containing the stock returns.}
 
-\item{edname}{The name of the column containing the (treatment firm-specific) event date.}
+\item{edname}{The name of the column containing the (treatment unit-specific) event date. All event dates must also exist as dates in \code{dname}. The
+column must either be of type \code{Date} or numeric. \code{Date} is internally converted to numeric. Event date values are ignored for control group units. See
+details.}
 
-\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}.}
+\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}. 0 is the event date. See
+details.}
 
-\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}.}
+\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}. 0 is the event date. See
+details.}
 
 \item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
 integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
 
-\item{placebo}{Whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}.}
+\item{placebo}{Logical denoting whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}.}
 
 \item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
@@ -53,14 +60,35 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 \value{
 An S3 object containing the following components:
 \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if \code{placebo == TRUE}) the 90\%, 95\% and 99\% confidence intervals.}
-\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
-\item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment groups.}
+\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the
+(actual) treatment group.}
+\item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment
+groups.}
 \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
 }
 \description{
 \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
 matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
 accommodate multiple event dates and missing values.
+}
+\details{
+When the \code{dname} column does not exclusively contain numeric values larger than 0, the function internally creates a numeric representation.
+If the \code{dname} column is of \code{Date} type, the function enumerates the dates existing in the data. I.e., it creates\tabular{rlr}{
+   dname_date \tab  \tab dname_num \cr
+   12/12/2024 \tab  \tab 1 \cr
+   13/12/2024 \tab  \tab 2 \cr
+   16/12/2024 \tab  \tab 3 \cr
+   17/12/2024 \tab  \tab 4 \cr
+}
+
+
+and NOT\tabular{rlr}{
+   dname \tab  \tab dname_num \cr
+   12/12/2024 \tab  \tab 1 \cr
+   13/12/2024 \tab  \tab 2 \cr
+   16/12/2024 \tab  \tab 5 \cr
+   17/12/2024 \tab  \tab 6 \cr
+}
 }
 \examples{
 # -----------------------------------------------
