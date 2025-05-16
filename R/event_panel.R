@@ -22,32 +22,37 @@
 #'  \item{r}{Stock return.}
 #'
 
-event_panel <- function(dt_treat, dt_control){
+event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+
+  # dt_treat: data table; columns: d, r; sorted by d; single unit_id
+  # dt_control: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
 
   out <- tryCatch({
     # get set of all "potential" control companies for event date
-    edate <- dt_treat[1L, "ed"][["ed"]]
-    r_event <- dt_control[ed == edate,]
+    r_control <- dt_control[[as.character(treat_ed)]]
     ndt_treat <- nrow(dt_treat)
 
     # select control companies
     # (1) No missing trading days on days treated corporation is traded
-    cids <- r_event[dt_treat[, "d"], "unit_id", nomatch = NULL, on = "d"][, .(tdays = .N), by = "unit_id"][tdays == ndt_treat, "unit_id"]
+    cids <- r_control[dt_treat[, "d"], "unit_id", nomatch = NULL, on = "d"][, .(tdays = .N), by = "unit_id"][tdays == ndt_treat, "unit_id"]
     # (2) price changes need to be observed during sample period
-    cids <- r_event[cids, c("unit_id", "r"), nomatch = NULL, on = "unit_id"][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][r_var > 0, "unit_id"]
+    cids <- r_control[cids, c("unit_id", "r"), nomatch = NULL, on = "unit_id"][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][
+      r_var > 0, "unit_id"]
 
     # filter control corp set
-    r_event <- r_event[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r"), nomatch = NULL, on = "d"]
+    r_control <- r_control[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r", "tau"), nomatch = NULL, on = "d"]
     rm(cids)
-    data.table::setorder(r_event, "unit_id")
-    # give treated firm the unique and not assigned unit_id = 0
-    r_event <- rbind(dt_treat[, c("unit_id", "r")], r_event)
-    r_event[1:ndt_treat, unit_id := 0L]
-    r_event[, t := rep.int(1:ndt_treat, nrow(r_event) / ndt_treat)]
+    dt_treat[, d := NULL]
+    data.table::setorder(r_control, unit_id)
 
-    out <- ar_comp(r_event)
+    ARs <- ar_comp(dt_treat, r_control, estwind, eventwind)
 
-    return(out)
+    # compute cumulative abnormal returns (CARs) and sigma
+    ARs[, c("car_wgted", "one_div_sigma") := list(cumsum(ar) / sigma, 1 / sigma)]
+    # filter out CARs or sigma's that are infinite or missing (perfect prediction by synthetic returns)
+    ARs <- ARs[is.finite(car_wgted) & is.finite(one_div_sigma),]
+
+    return(ARs)
   }, error = function(x) return(NULL))
 
   return(out)

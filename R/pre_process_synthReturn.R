@@ -88,36 +88,16 @@ pre_process_synthReturn <- function(
       "before the event window.")
   }
 
-  # make sure IDs are numeric
-  unit_is_numeric <- is.numeric(DT[[unitname]])
-  if(unit_is_numeric) {
-    unit_min <- min(DT[[unitname]], na.rm = TRUE)
-    unit_offset <- data.table::fifelse(unit_min < 1L, abs(unit_min) + 1L, 0L)
-  } else {
-    if(anyNA(DT[[unitname]])) {
-      stop("data[, unitname] must not contain NAs.")
-    }
-    unit_id_conv <- unique(DT[, unitname])
-    data.table::setnames(unit_id_conv, "unit_id")
-    data.table::setkey(unit_id_conv, unit_id)
-    unit_id_conv[, unit_num := 1:.N]
-  }
-
   # make sure treatment indicator is logical
   if(!is.logical(DT[[treatname]])) {
     stop("data[, treatname] must be logical. Please convert it.")
   }
 
   # make sure the date variables are either of format date or numeric
-  date_is_date <- inherits(DT[[dname]], "Date")
-  if(date_is_date) {
+  if(inherits(DT[[dname]], "Date")) {
     if(!inherits(DT[[edname]], "Date")) {
       stop("If data[, dname] is of format date, data[, dname] must be of format date as well.")
     }
-    date_conv <- unique(DT[, dname])
-    data.table::setnames(date_conv, "d")
-    data.table::setkey(date_conv, d)
-    date_conv[, date_num = 1:.N]
   } else {
     # make sure dates are of format numeric
     if(!is.numeric(DT[[dname]])) {
@@ -163,6 +143,11 @@ pre_process_synthReturn <- function(
   } else if(eventobs_min < 0L) {
     # eventobs_min cannot be smaller than 0
     stop("The value of eventobs_min has to be either between [0,1] or an integer <= length of the event window.")
+  }
+
+  # make sure placebo is TRUE or FALSE
+  if(length(placebo) != 1L || !is.logical(placebo) || is.na(placebo)) {
+    stop("placebo must be either TRUE or FALSE.")
   }
 
   # check placebo options
@@ -221,29 +206,6 @@ pre_process_synthReturn <- function(
   data.table::setnames(r_treat, c(rname, dname, edname, unitname), c("r", "d", "ed", "unit_id"))
   data.table::setnames(r_control, c(rname, dname, unitname), c("r", "d", "unit_id"))
 
-  # convert date to numeric format
-  if(date_is_date) {
-    r_treat <- date_conv[r_treat, c("r", "date_num", "ed", "unit_id"), on = "d"]
-    data.table::setnames(r_treat, "date_num", "d")
-    r_treat <- date_conv[r_treat, c("r", "d", "date_num", "unit_id"), on = c("d" = "ed")]
-    data.table::setnames(r_treat, "date_num", "ed")
-    r_control <- date_conv[r_treat, c("r", "date_num", "unit_id"), on = "d"]
-    data.table::setnames(r_treat, "date_num", "d")
-  }
-
-  # convert unit id to numeric strictly positive format
-  if(unit_is_numeric) {
-    if(unit_offset != 0L) {
-      r_treat[, unit_id := unit_id + unit_offset]
-      r_control[, unit_id := unit_id + unit_offset]
-    }
-  } else {
-    r_treat <- unit_id_conv[r_treat, c("r", "d", "ed", "unit_num"), on = "unit_id"]
-    data.table::setnames(r_treat, "unit_num", "unit_id")
-    r_control <- unit_id_conv[r_control, c("r", "d", "unit_num"), on = "unit_id"]
-    data.table::setnames(r_control, "unit_num", "unit_id")
-  }
-
   # Subset to finite values
   nr_DT_pre <- nrow(r_treat)
   r_treat <- r_treat[is.finite(r) & is.finite(d) & is.finite(ed) & is.finite(unit_id),]
@@ -268,104 +230,118 @@ pre_process_synthReturn <- function(
   data.table::setkey(r_treat, unit_id, d)
   data.table::setkey(r_control, unit_id, d)
 
+  # Check if each unit has no more than 1 event date
+  if(any(r_treat[, .(mult_ed = data.table::uniqueN(ed) != 1L), by = "unit_id"][["mult_ed"]])) {
+    stop("Each unit must not have more than one event date. If a unit is treated multiple times, include it with a distinct unit ID per event date.")
+  }
+
   #-----------------------------------------------------------------------------
   # setup data in required form
 
   # reshape treatment returns
-  r_treat <- split(r_treat, by = "ed")
+  r_treat_ed <- r_treat[, .(ed = ed[1L]), by = "unit_id"][, "ed"]
+  r_treat[, ed := NULL]
+  r_treat <- split(r_treat, by = "unit_id", keep.by = FALSE)
   if(ncores == 1L) {
-    r_treat <- data.table::rbindlist(
-      lapply(
-        r_treat,
-        get_set,
+    r_treat <- mapply(
+      get_treat_set,
+      eventdate = r_treat_ed[["ed"]],
+      out = r_treat,
+      MoreArgs = list(
         estwind = estwind,
         eventwind = eventwind,
         estobs_min = estobs_min,
-        eventobs_min = eventobs_min,
-        eventdate = NULL
-      )
+        eventobs_min = eventobs_min
+      ),
+      SIMPLIFY = FALSE,
+      USE.NAMES = FALSE
     )
   } else {
     if(is_windows) {
-      r_treat <- data.table::rbindlist(
-        mirai::mirai_map(
-          r_treat,
-          get_set,
-          .args = list(
-            estwind = estwind,
-            eventwind = eventwind,
-            estobs_min = estobs_min,
-            eventobs_min = eventobs_min,
-            eventdate = NULL
-          ),
-          .compute = "synthReturn"
-        )[]
-      )
-    } else {
-      r_treat <- data.table::rbindlist(
-        parallel::mclapply(
-          r_treat,
-          get_set,
+      cl <- mirai::make_cluster(ncores)
+      r_treat <- parallel::clusterMap(
+        cl,
+        get_treat_set,
+        eventdate = r_treat_ed[["ed"]],
+        out = r_treat,
+        MoreArgs = list(
           estwind = estwind,
           eventwind = eventwind,
           estobs_min = estobs_min,
           eventobs_min = eventobs_min,
-          eventdate = NULL,
-          mc.cores = ncores
-        )
+          eventdate = NULL
+        ),
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE
+      )
+      mirai::stop_cluster(cl)
+    } else {
+      r_treat <- parallel::mcmapply(
+        get_treat_set,
+        eventdate = r_treat_ed[["ed"]],
+        out = r_treat,
+        MoreArgs = list(
+          estwind = estwind,
+          eventwind = eventwind,
+          estobs_min = estobs_min,
+          eventobs_min = eventobs_min
+        ),
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE,
+        mc.cores = ncores
       )
     }
   }
+  r_treat_not_null <- !vapply(r_treat, is.null, logical(1L), USE.NAMES = FALSE)
+  r_treat <- r_treat[r_treat_not_null]
+  r_treat_ed <- r_treat_ed[r_treat_not_null,]
 
   # reshape control returns
+  eds <- unique(r_treat_ed[, "ed"])[["ed"]]
   if(ncores == 1L) {
-    r_control <- data.table::rbindlist(
-      lapply(
-        unique(r_treat[, "ed"])[["ed"]],
+    r_control <- lapply(
+      eds,
+      get_control_set,
+      cdata = r_control,
+      estwind = estwind,
+      eventwind = eventwind,
+      estobs_min = estobs_min,
+      eventobs_min = eventobs_min
+    )
+  } else {
+    if(is_windows) {
+      r_control <- mirai::mirai_map(
+        eds,
+        get_control_set,
+        get_set = get_set,
+        .args = list(
+          cdata = r_control,
+          estwind = estwind,
+          eventwind = eventwind,
+          estobs_min = estobs_min,
+          eventobs_min = eventobs_min
+        ),
+        .compute = "synthReturn"
+      )[]
+    } else {
+      r_control <- parallel::mclapply(
+        eds,
         get_control_set,
         cdata = r_control,
         estwind = estwind,
         eventwind = eventwind,
         estobs_min = estobs_min,
-        eventobs_min = eventobs_min
-      )
-    )
-  } else {
-    if(is_windows) {
-      r_control <- data.table::rbindlist(
-        mirai::mirai_map(
-          unique(r_treat[, "ed"])[["ed"]],
-          get_control_set,
-          get_set = get_set,
-          .args = list(
-            cdata = r_control,
-            estwind = estwind,
-            eventwind = eventwind,
-            estobs_min = estobs_min,
-            eventobs_min = eventobs_min
-          ),
-          .compute = "synthReturn"
-        )[]
-      )
-    } else {
-      r_control <- data.table::rbindlist(
-        parallel::mclapply(
-          unique(r_treat[, "ed"])[["ed"]],
-          get_control_set,
-          cdata = r_control,
-          estwind = estwind,
-          eventwind = eventwind,
-          estobs_min = estobs_min,
-          eventobs_min = eventobs_min,
-          mc.cores = ncores
-        )
+        eventobs_min = eventobs_min,
+        mc.cores = ncores
       )
     }
   }
+  names(r_control) <- as.character(eds)
 
   out <- list(
-    r_treat,
-    r_control
+    r_treat = r_treat,
+    r_control = r_control,
+    r_treat_ed = r_treat_ed[["ed"]]
   )
 
   return(out)

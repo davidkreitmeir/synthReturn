@@ -9,16 +9,14 @@
 #' @param unitname The name of the column containing IDs of treated and control units.
 #' @param treatname The name of the indicator column set to `TRUE` for the treatment group and to `FALSE` for the control group. The column's values must
 #' be time-constant within a unit because they mark whether a unit was ever treated.
-#' @param dname The name of the column containing the date variable. The column must either be of type `Date` or numeric. `Date` is internally converted to
-#' numeric. See details.
+#' @param dname The name of the column containing the date variable. The column must either be of type `Date` or numeric. See details.
 #' @param rname The name of the column containing the stock returns.
 #' @param edname The name of the column containing the (treatment unit-specific) event date. All event dates must also exist as dates in `dname`. The
-#' column must either be of type `Date` or numeric. `Date` is internally converted to numeric. Event date values are ignored for control group units. See
-#' details.
-#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`. 0 is the event date. See
-#' details.
-#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`. 0 is the event date. See
-#' details.
+#' column must either be of type `Date` or numeric. Event date values are ignored for control group units. See details.
+#' @param estwind Argument to set estimation window period in relative time to event, i.e. `c(estwind_start, estwind_end)`. 0 is the event date. The
+#' interval only considers observed days. See details.
+#' @param eventwind Argument to set event window period in relative time to event, i.e. `c(eventwind_start, eventwind_end)`. 0 is the event date. The
+#' interval only considers observed days. See details.
 #' @param estobs_min Argument to define minimum number of trading days during the estimation window.
 #' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
@@ -29,32 +27,15 @@
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
 #'
-#' @details If the `dname` column is of `Date` type, the function creates a numeric representation by enumerating the dates existing in the data. I.e., it
-#' creates
+#' @details The data's `dname` and `edname` columns refer to dates. `dname` is the date that a row refers to. `edname` is the date when a unit was treated.
+#' I.e., `edname` is constant across all rows per unit. And it is ignored for never treated units.
 #'
-#' |     dname_date | | dname_num|
-#' |---------------:|-|---------:|
-#' |12/12/2024      | |         1|
-#' |13/12/2024      | |         2|
-#' |16/12/2024      | |         3|
-#' |17/12/2024      | |         4|
+#' The package uses the term "term" for consistency with the literature. Internally, it does not care what interval a time period refers to. It evaluates
+#' units' sequences of distinct `Date` or numerical values in `dname` and `edname`, irrespective of whether the denote days, hours, etc.
 #'
-#' and NOT
-#'
-#' |     dname_date | | dname_num|
-#' |---------------:|-|---------:|
-#' |12/12/2024      | |         1|
-#' |13/12/2024      | |         2|
-#' |16/12/2024      | |         5|
-#' |17/12/2024      | |         6|
-#'
-#' It only counts observed days because this is the desired behavior in many use cases. Financial researchers, e.g., often only take trading days into
-#' account and understand Monday as the next day after the previous Friday, since there is no stock trading on weekends.
-#'
-#' `estwind` and `eventwind` refer to those numeric values. Hence, in case a unit is treated on 16/12/2024, that date is day 0 in `estwind` and
-#' `eventwind`. And the 13/12/2024 is day -1.
-#'
-#' If you want unobserved days to be counted, do not pass a column of `Date` type. Directly use a numeric column.
+#' `estwind` and `eventwind` describe sections in these sequences. 0 is the treatment time. Hence, `c(-1, -100)` is a unit's 100 observations before
+#' treatment. When `dname` and `edname` are in days and a specific unit is observed on 2 days per week, `c(-1, -100)` covers 50 weeks before treatment in
+#' the case of that unit. In the financial data, that would be a company's 100 trading days before treatment.
 #'
 #' @return An S3 object containing the following components:
 #' \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if `placebo == TRUE`) the 90%, 95% and 99% confidence intervals.}
@@ -158,6 +139,7 @@ synthReturn <- function(
   is_windows <- .Platform$OS.type == "windows"
   if(is_windows && ncores != 1L) {
     mirai::daemons(ncores, .compute = "synthReturn")
+    on.exit(mirai::daemons(0L, .compute = "synthReturn"))
     mirai::everywhere(require("data.table"))
   }
 
@@ -181,17 +163,20 @@ synthReturn <- function(
     is_windows = is_windows
   )
 
+  # dp[["r_treat"]]: data table; columns: unit_id, d, r; sorted by unit_id, d
+  # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
+  # dp[["r_treat_unit_ed"]]: data table; columns: unit_id, ed; sorted by unit_id
+
   #-----------------------------------------------------------------------------
   # Implement the methods
 
-  r_treat <- dp[[1L]]
-  r_control <- dp[[2L]]
-  rm(dp)
-
   # Compute average treatment effect `phi` (for "actual" treatment group)
   res <- phi_comp(
-    r_treat = r_treat,
-    r_control = r_control
+    r_treat = dp[["r_treat"]],
+    r_control = dp[["r_control"]],
+    r_treat_ed = dp[["r_treat_ed"]],
+    ncores = ncores,
+    is_windows = is_windows
   )
 
   #-----------------------------------------------------------------------------
@@ -200,82 +185,92 @@ synthReturn <- function(
   if(placebo) {
 
     # number of treated units
-    n_treat <- data.table::uniqueN(r_treat, by = "unit_id")
+    n_treat <- length(dp[["r_treat"]])
+    dp[["r_treat"]] <- NULL
 
-    cid_placebo <- unique(r_control[, c("unit_id", "ed")])
     # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
     ngroup_min <- floor(ngroup*n_treat)
-    ed_placebo <- cid_placebo[, .(ntotal = .N), by = "ed"][ntotal >= ngroup_min, "ed"]
-    # final set of placebo event dates (and potentially placebo treated units)
-    cid_placebo <- cid_placebo[ed_placebo, nomatch = NULL, on = "ed"]
-    rm(ed_placebo)
+    cid_placebo <- sapply(dp[["r_control"]], function(r_control_ed) {
+      r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+      if(length(r_control_ed_units) >= ngroup_min) {
+        return(r_control_ed_units)
+      } else {
+        return(NULL)
+      }
+    }, simplify = FALSE)
 
-    # `ndraws` random draws of placebo treatment groups of size `n` (with replacement) for each (unique) event date
-    if(is_windows || ncores == 1L) {
-      pids <- data.table::rbindlist(
-        lapply(
-          split(cid_placebo, by = "ed"),
-          function(dt, n_treat, ndraws) {
-            sampled_dt <- dt[as.vector(vapply(1:ndraws, sample.int, integer(n_treat), n = nrow(dt), size = n_treat, replace = TRUE)),]
-            sampled_dt[, replicate := rep(1:ndraws, each = n_treat)]
-            return(sampled_dt)
-          },
-          n_treat = n_treat,
-          ndraws = ndraws
-        ),
-        use.names = TRUE,
-        idcol = "edid"
-      )
-    } else {
-      pids <- data.table::rbindlist(
-        parallel::mclapply(
-          split(cid_placebo, by = "ed"),
-          function(dt, n_treat, ndraws) {
-            sampled_dt <- dt[as.vector(vapply(1:ndraws, sample.int, integer(n_treat), n = nrow(dt), size = n_treat, replace = TRUE)),]
-            sampled_dt[, replicate := rep(1:ndraws, each = n_treat)]
-            return(sampled_dt)
-          },
-          n_treat = n_treat,
-          ndraws = ndraws,
-          mc.cores = ncores
-        ),
-        use.names = TRUE,
-        idcol = "edid"
-      )
-    }
-    # generate unique placebo id (pid = ndraws x number_of_event_dates)
-    pids <- pids[, pid := .GRP, by = c("edid", "replicate")]
-    pids <- pids[, c("edid", "replicate") := NULL]
-    pids <- split(pids, by = "pid")
+    # cid_placebo: list of event date data tables denoting the control unit_ids for that event date; columns: unit_id
 
-    # compute treatment effect for all placebo treatment groups
+    # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
     if(ncores == 1L) {
-      phi_placebo <- data.table::rbindlist(
+      pids <- data.table::rbindlist(
         lapply(
-          pids,
-          phi_comp_placebo,
-          dt_control = r_control,
-          estwind = estwind
-        ),
-        use.names = TRUE,
-        idcol = "pid"
+          cid_placebo,
+          function(cids) {
+            if(is.null(cids)) {
+              return(NULL)
+            }
+            phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
+              sample_cids <- sample(cids, n_treat, TRUE)
+              phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
+              return(phi_placebo_draw)
+            }))
+            return(phi_placebo_ed)
+          }
+        )
       )
     } else {
-      phi_placebo <- data.table::rbindlist(
-        lapply(
-          pids,
-          phi_comp_placebo,
-          dt_control = r_control,
-          estwind = estwind
-        ),
-        use.names = TRUE,
-        idcol = "pid"
-      )
+      if(is_windows) {
+        pids <- data.table::rbindlist(
+          mirai::mirai_map(
+            cid_placebo,
+            function(cids, ndraws, n_treat, r_control, estwind) {
+              if(is.null(cids)) {
+                return(NULL)
+              }
+              phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
+                sample_cids <- sample(cids, n_treat, TRUE)
+                phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
+                return(phi_placebo_draw)
+              }))
+              return(phi_placebo_ed)
+            },
+            .args = list(
+              ndraws = ndraws,
+              n_treat = n_treat,
+              r_control = r_control,
+              estwind = estwind
+            ),
+            .compute = "synthReturn"
+          )[]
+        )
+      } else {
+        pids <- data.table::rbindlist(
+          parallel::mclapply(
+            cid_placebo,
+            function(cids, ndraws, n_treat, r_control, estwind) {
+              if(is.null(cids)) {
+                return(NULL)
+              }
+              phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
+                sample_cids <- sample(cids, n_treat, TRUE)
+                phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
+                return(phi_placebo_draw)
+              }))
+              return(phi_placebo_ed)
+            },
+            n_treat = n_treat,
+            ndraws = ndraws,
+            r_control = r_control,
+            mc.cores = ncores
+          )
+        )
+      }
     }
-    rm(pids)
 
     if(is_windows && ncores != 1L) {
       mirai::daemons(0L, .compute = "synthReturn")
+      on.exit()
     }
 
     # get number of placebo treatment effects

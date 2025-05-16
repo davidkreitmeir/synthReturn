@@ -12,65 +12,71 @@
 #' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 #'
 
-phi_comp <- function(r_treat, r_control, ncores, is_windows) {
+phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, is_windows) {
 
-  # save mapping of unit ID to row ID (`rid`)
-  unit_id_rid_map <- unique(r_treat[, "unit_id"])
-  unit_id_rid_map[, rid := 1:.N]
-  r_treat <- split(r_treat, by = "unit_id")
+  # r_treat: list of unit-specific data tables; columns: d, r; sorted by d
+  # r_control: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
+  # r_treat_unit_ed: data table of event date per treated unit; columns: ed, unit_id; sorted by unit_id
 
   if(ncores == 1L) {
     # obtain event panel for each treatment group
     # compute abnormal returns (ARs) for each placebo treatment group firm
     ARs <- data.table::rbindlist(
-      lapply(
-        r_treat,
+      mapply(
         event_panel,
-        dt_control = r_control
+        dt_treat = r_treat,
+        treat_ed = r_treat_ed,
+        MoreArgs = list(
+          dt_control = r_control,
+          estwind = estwind,
+          eventwind = eventwind
+        ),
+        SIMPLIFY = FALSE,
+        USE.NAMES = FALSE
       ),
-      use.names = TRUE,
-      idcol = "rid"
+      idcol = "panel_id"
     )
   } else {
     if(is_windows) {
+      cl <- mirai::make_cluster(ncores)
       ARs <- data.table::rbindlist(
-        mirai::mirai_map(
-          r_treat,
-          event_panel,
-          .args = list(
-            dt_control = r_control
+        parallel::clusterMap(
+          cl,
+          dt_treat = r_treat,
+          treat_ed = r_treat_ed,
+          MoreArgs = list(
+            dt_control = r_control,
+            estwind = estwind,
+            eventwind = eventwind
           ),
-          .compute = "synthReturn"
-        )[],
-        use.names = TRUE,
-        idcol = "rid"
+          SIMPLIFY = FALSE,
+          USE.NAMES = FALSE
+        ),
+        idcol = "panel_id"
       )
+      mirai::stop_cluster(cl)
     } else {
       ARs <- data.table::rbindlist(
         parallel::mclapply(
-          r_treat,
           event_panel,
-          dt_control = r_control,
+          dt_treat = r_treat,
+          treat_ed = r_treat_ed,
+          MoreArgs = list(
+            dt_control = r_control,
+            estwind = estwind,
+            eventwind = eventwind
+          ),
+          SIMPLIFY = FALSE,
+          USE.NAMES = FALSE,
           mc.cores = ncores
         ),
-        use.names = TRUE,
-        idcol = "rid"
+        idcol = "panel_id"
       )
     }
   }
 
-  # compute phi for "actual" treatment group
-  ARs[, rid := as.numeric(rid)]
-  data.table::setorder(ARs, rid, tau)
-  # compute cumulative abnormal returns (CARs) and sigma
-  ARs[, car := cumsum(ar), by = "rid"]
-  ARs[, c("car_wgted", "one_div_sigma") := list(car / sigma, 1 / sigma)]
-  # filter out CARs or sigma's that are infinite or missing (perfect prediction by synthetic returns)
-  ARs <- ARs[is.finite(car_wgted) & is.finite(one_div_sigma),]
   # compute phi - equ. (7)
   phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-  # map treatment IDs back to ARs
-  ARs <- ARs[unit_id_rid_map, c("unit_id", "tau", "ar", "sigma"), on = "rid"]
   out <- list(phi = phi, ar = ARs)
 
   return(out)

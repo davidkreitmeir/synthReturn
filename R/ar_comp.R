@@ -12,27 +12,23 @@
 #'  \item{sigma}{"Goodness" of fit measure.}
 #'
 
-ar_comp <- function(data_treat, data_control) {
+ar_comp <- function(data_treat, data_control, estwind, eventwind) {
 
   out <- tryCatch({
     #-----------------------------------------------------------------------------
     # Pre-process data
 
-    # data: unit_id, r, t (sorted by unit_id, t)
-
     # Note: treated corporation has unit_id == 0
     # Grab "effective" length of windows
-    estwindlen <- nrow(data_treat[estwind == 1L,])
+    estwind_rows <- data_treat[tau %between% estwind, which = TRUE]
+    eventwind_rows <- data_treat[tau %between% eventwind, which = TRUE]
 
-    # Control firm returns during estimation window
-    R_est <- data_control[estwind == 1L, c("unit_id", "r", "t")]
-    R_est <- data.table::dcast(R_est, t ~ unit_id, value.var = "r")
-    R_est[, t := NULL]
-    R_est <- as.matrix(R_est)
-    # and estimation & event window
-    R <- data.table::dcast(data_control, t ~ unit_id, value.var = "r")
-    R[, t := NULL]
+    # Control firm returns during estimation & event window
+    R <- data.table::dcast(data_control, tau ~ unit_id, value.var = "r")
+    R[, tau := NULL]
     R <- as.matrix(R)
+    # during estimation window
+    R_est <- R[estwind_rows,]
 
     #-----------------------------------------------------------------------------
     # Solve quadratic programming problem
@@ -40,7 +36,7 @@ ar_comp <- function(data_treat, data_control) {
     # Matrix appearing in the quadratic function to be minimized
     D <- crossprod(R_est)
     # vector appearing in the quadratic function to be minimized
-    d <- crossprod(R_est, data_treat[estwind == 1L, "r"][["r"]])
+    d <- crossprod(R_est, data_treat[estwind_rows, "r"][["r"]])
     rm(R_est)
     # matrix defining the constraints under which we want to minimize the quadratic function (LHS)
     # Here: weights need to sum up to 1 and each weight has to be >= 0
@@ -64,19 +60,15 @@ ar_comp <- function(data_treat, data_control) {
 
     # Compute synthetic control return series: R %*% w1
     # Compute abnormal returns
-    ars <- data.table::data.table(ar = data_treat[["r"]] - (R %*% w1))
+    ars <- data.table::data.table(ar = data_treat[["r"]] - as.vector(R %*% w1))
     rm(R, w1)
     # Compute sigma ("goodness" of match)
-    ars[, sigma := sigmafun(ars[1:estwindlen, "ar"][["ar"]])]
-    # Add event window indicator
-    ars[, row := 1:.N]
-    ars[, eventwind := as.integer(row > estwindlen)]
+    ars[, sigma := sigmafun(ars[estwind_rows, "ar"][["ar"]])]
     # Add relative time
-    ars[, tau := row - (estwindlen + 1L)]
-    ars[, row := NULL]
+    ars[, tau := data_treat[["tau"]]]
 
     # Keep only ARs during event window
-    out <- ars[eventwind == 1L, c("tau", "ar", "sigma")]
+    out <- ars[eventwind_rows,]
     return(out)
   }, error = function(x) return(NULL))
 
