@@ -19,6 +19,7 @@ pre_process_synthReturn(
   ngroup,
   ndraws,
   ncores,
+  static_scheduling,
   is_windows
 )
 }

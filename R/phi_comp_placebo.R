@@ -14,43 +14,32 @@
 #'  \item{phi}{(Placebo) treatment effect.}
 #'
 
-phi_comp_placebo <- function(p_treat_unit_id, treat_ed, dt_control, estwind, eventwind) {
+phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind) {
 
-  # p_treat: placebo treatment group
+  # p_treat: vector of placebo treatment group unit ids
 
   out <- tryCatch({
 
-    # get control group for that event date
-    dt_control_edate <- dt_control[[treat_ed]]
-    if(is.null(dt_control_edate)) {
-      return(NULL)
-    }
-
     # get returns of placebo treatment firms
-    r_treat_placebo <- dt_control_edate[p_treat_unit_id, nomatch = NULL, on = "unit_id"]
+    r_treat_placebo <- r_control_ed[.(placebo_treat_ids), nomatch = NULL, on = "unit_id"]
 
     # split by placebo treated firm
-    r_treat_placebo <- split(r_treat_placebo, by = "unit_id")
+    r_treat_placebo <- split(r_treat_placebo, by = "unit_id", keep.by = FALSE)
 
     # drop placebo treated companies from control group
-    r_control_placebo <- dt_control_edate[!p_treat_unit_id, on = "unit_id"]
+    r_control_placebo <- r_control_ed[!.(placebo_treat_ids), on = "unit_id"]
 
     # obtain event panel for each treatment group
     # compute abnormal returns (ARs) for each placebo treatment group firm
     ARs <- data.table::rbindlist(
-      mapply(
+      lapply(
+        r_treat_placebo,
         event_panel,
-        dt_treat = r_treat_placebo,
-        treat_ed = treat_ed,
-        MoreArgs = list(
-          dt_control = r_control_placebo,
-          estwind = estwind,
-          eventwind = eventwind
-        ),
-        SIMPLIFY = FALSE,
-        USE.NAMES = FALSE
-      ),
-      idcol = "panel_id"
+        treat_ed = NULL,
+        dt_control = r_control_placebo,
+        estwind = estwind,
+        eventwind = eventwind
+      )
     )
 
     # compute phi - equ. (7)

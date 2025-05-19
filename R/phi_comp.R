@@ -12,7 +12,7 @@
 #' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
 #'
 
-phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, is_windows) {
+phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, static_scheduling, is_windows) {
 
   # r_treat: list of unit-specific data tables; columns: d, r; sorted by d
   # r_control: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
@@ -33,8 +33,7 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, is_windows) {
         ),
         SIMPLIFY = FALSE,
         USE.NAMES = FALSE
-      ),
-      idcol = "panel_id"
+      )
     )
   } else {
     if(is_windows) {
@@ -51,13 +50,12 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, is_windows) {
           ),
           SIMPLIFY = FALSE,
           USE.NAMES = FALSE
-        ),
-        idcol = "panel_id"
+        )
       )
       mirai::stop_cluster(cl)
     } else {
       ARs <- data.table::rbindlist(
-        parallel::mclapply(
+        parallel::mcmapply(
           event_panel,
           dt_treat = r_treat,
           treat_ed = r_treat_ed,
@@ -68,9 +66,9 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, ncores, is_windows) {
           ),
           SIMPLIFY = FALSE,
           USE.NAMES = FALSE,
-          mc.cores = ncores
-        ),
-        idcol = "panel_id"
+          mc.cores = ncores,
+          mc.preschedule = static_scheduling
+        )
       )
     }
   }

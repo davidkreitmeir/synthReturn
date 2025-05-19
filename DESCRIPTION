@@ -2,7 +2,8 @@ Package: synthReturn
 Type: Package
 Title: Synthetic Matching Method for Returns
 Version: 0.2.0
-Authors@R: person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre"))
+Authors@R: c(person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre")), person("Christian", "Düben",
+  email = "cdueben.ml+cran@proton.me", role = "ctb"))
 Description: Implements the synthetic matching method originally suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2020) to accommodate 
   multiple event dates and missing values.
 License: GPL (>= 3)

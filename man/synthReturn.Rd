@@ -18,32 +18,30 @@ synthReturn(
   placebo = TRUE,
   ngroup = 2,
   ndraws = 25,
-  ncores = NULL
+  ncores = NULL,
+  static_scheduling = TRUE
 )
 }
 \arguments{
-\item{data}{The name of the data.frame that contains the data. Data should be stored in the "long" format.}
+\item{data}{The name of the data frame that contains the data.}
 
-\item{unitname}{The name of the column containing IDs of treated and control units. If the column is not numeric with all values larger than 0, the
-function internally converts it to that format.}
+\item{unitname}{The name of the column containing IDs of treated and control units.}
 
 \item{treatname}{The name of the indicator column set to \code{TRUE} for the treatment group and to \code{FALSE} for the control group. The column's values must
 be time-constant within a unit because they mark whether a unit was ever treated.}
 
-\item{dname}{The name of the column containing the date variable. The column must either be of type \code{Date} or numeric. \code{Date} is internally converted to
-numeric. See details.}
+\item{dname}{The name of the column containing the date variable. The column must either be of type \code{Date} or numeric. See details.}
 
 \item{rname}{The name of the column containing the stock returns.}
 
 \item{edname}{The name of the column containing the (treatment unit-specific) event date. All event dates must also exist as dates in \code{dname}. The
-column must either be of type \code{Date} or numeric. \code{Date} is internally converted to numeric. Event date values are ignored for control group units. See
-details.}
+column must either be of type \code{Date} or numeric. Event date values are ignored for control group units. See details.}
 
-\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}. 0 is the event date. See
-details.}
+\item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}. 0 is the event date. The
+interval only considers observed days. See details.}
 
-\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}. 0 is the event date. See
-details.}
+\item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}. 0 is the event date. The
+interval only considers observed days. See details.}
 
 \item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
 integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
@@ -56,6 +54,10 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 \item{ndraws}{Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.}
 
 \item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
+
+\item{static_scheduling}{Logical setting the parallel scheduling type on unix-like operating systems. \code{TRUE} (default) implies static scheduling,
+\code{FALSE} dynamic scheduling. This parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no
+effect on Windows machines or when \code{ncores = 1}.}
 }
 \value{
 An S3 object containing the following components:
@@ -72,23 +74,15 @@ matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et
 accommodate multiple event dates and missing values.
 }
 \details{
-When the \code{dname} column does not exclusively contain numeric values larger than 0, the function internally creates a numeric representation.
-If the \code{dname} column is of \code{Date} type, the function enumerates the dates existing in the data. I.e., it creates\tabular{rlr}{
-   dname_date \tab  \tab dname_num \cr
-   12/12/2024 \tab  \tab 1 \cr
-   13/12/2024 \tab  \tab 2 \cr
-   16/12/2024 \tab  \tab 3 \cr
-   17/12/2024 \tab  \tab 4 \cr
-}
+The data's \code{dname} and \code{edname} columns refer to dates. \code{dname} is the date that a row refers to. \code{edname} is the date when a unit was treated.
+I.e., \code{edname} is constant across all rows per unit. And it is ignored for never treated units.
 
+The package uses the term "term" for consistency with the literature. Internally, it does not care what interval a time period refers to. It evaluates
+units' sequences of distinct \code{Date} or numerical values in \code{dname} and \code{edname}, irrespective of whether the denote days, hours, etc.
 
-and NOT\tabular{rlr}{
-   dname \tab  \tab dname_num \cr
-   12/12/2024 \tab  \tab 1 \cr
-   13/12/2024 \tab  \tab 2 \cr
-   16/12/2024 \tab  \tab 5 \cr
-   17/12/2024 \tab  \tab 6 \cr
-}
+\code{estwind} and \code{eventwind} describe sections in these sequences. 0 is the treatment time. Hence, \code{c(-1, -100)} is a unit's 100 observations before
+treatment. When \code{dname} and \code{edname} are in days and a specific unit is observed on 2 days per week, \code{c(-1, -100)} covers 50 weeks before treatment in
+the case of that unit. In the financial data, that would be a company's 100 trading days before treatment.
 }
 \examples{
 # -----------------------------------------------

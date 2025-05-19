@@ -19,6 +19,7 @@ pre_process_synthReturn <- function(
   ngroup,
   ndraws,
   ncores,
+  static_scheduling,
   is_windows
 ) {
 
@@ -175,6 +176,11 @@ pre_process_synthReturn <- function(
     eventobs_min <- floor(eventobs_min * eventwindlen)
   }
 
+  # Check scheduling choice
+  if(length(static_scheduling) != 1L || !is.logical(static_scheduling) || is.na(static_scheduling)) {
+    stop("static_scheduling must be either TRUE or FALSE.")
+  }
+
   # Check if unit_id is unique by dname
   if(anyDuplicated(DT[, c(dname, unitname)]) != 0) {
     stop("The value of unitname must be the unique (by dname). I.e. a unit must not be observed more than once per time period.")
@@ -268,8 +274,7 @@ pre_process_synthReturn <- function(
           estwind = estwind,
           eventwind = eventwind,
           estobs_min = estobs_min,
-          eventobs_min = eventobs_min,
-          eventdate = NULL
+          eventobs_min = eventobs_min
         ),
         SIMPLIFY = FALSE,
         USE.NAMES = FALSE
@@ -288,7 +293,8 @@ pre_process_synthReturn <- function(
         ),
         SIMPLIFY = FALSE,
         USE.NAMES = FALSE,
-        mc.cores = ncores
+        mc.cores = ncores,
+        mc.preschedule = static_scheduling
       )
     }
   }
@@ -332,7 +338,8 @@ pre_process_synthReturn <- function(
         eventwind = eventwind,
         estobs_min = estobs_min,
         eventobs_min = eventobs_min,
-        mc.cores = ncores
+        mc.cores = ncores,
+        mc.preschedule = static_scheduling
       )
     }
   }

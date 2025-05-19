@@ -22,7 +22,7 @@ integer or a proportional (i.e. between 0 and 1). Default is \eqn{1}, i.e. no mi
 A data.table containing the following columns:
 \item{cid}{Unique (event \eqn{\times}) control firm identifier.}
 \item{d}{Trading Date.}
-\item{ed}{Event date}
+\item{ed}{Event date.}
 \item{r}{Stock return.}
 }
 \description{

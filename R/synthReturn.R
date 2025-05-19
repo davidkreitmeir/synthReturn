@@ -26,6 +26,9 @@
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
+#' @param static_scheduling Logical setting the parallel scheduling type on unix-like operating systems. `TRUE` (default) implies static scheduling,
+#' `FALSE` dynamic scheduling. This parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no
+#' effect on Windows machines or when `ncores = 1`.
 #'
 #' @details The data's `dname` and `edname` columns refer to dates. `dname` is the date that a row refers to. `edname` is the date when a unit was treated.
 #' I.e., `edname` is constant across all rows per unit. And it is ignored for never treated units.
@@ -127,7 +130,8 @@ synthReturn <- function(
   placebo = TRUE,
   ngroup = 2,
   ndraws = 25,
-  ncores = NULL
+  ncores = NULL,
+  static_scheduling = TRUE
 ) {
 
   # Parallel setting
@@ -140,7 +144,7 @@ synthReturn <- function(
   if(is_windows && ncores != 1L) {
     mirai::daemons(ncores, .compute = "synthReturn")
     on.exit(mirai::daemons(0L, .compute = "synthReturn"))
-    mirai::everywhere(require("data.table"))
+    mirai::everywhere(require("data.table"), .compute = "synthReturn")
   }
 
   #-----------------------------------------------------------------------------
@@ -160,12 +164,13 @@ synthReturn <- function(
     ngroup = ngroup,
     ndraws = ndraws,
     ncores = ncores,
+    static_scheduling = static_scheduling,
     is_windows = is_windows
   )
 
-  # dp[["r_treat"]]: data table; columns: unit_id, d, r; sorted by unit_id, d
-  # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
-  # dp[["r_treat_unit_ed"]]: data table; columns: unit_id, ed; sorted by unit_id
+  # dp[["r_treat"]]: list of unit-specific data tables; columns: d, r, tau; sorted by d; list elements are not named
+  # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r, tau; sorted by unit_id, d; list elements are named according to ed value
+  # dp[["r_treat_unit_ed"]]: vector of treat unit ids; same order is r_treat list elements
 
   #-----------------------------------------------------------------------------
   # Implement the methods
@@ -176,6 +181,7 @@ synthReturn <- function(
     r_control = dp[["r_control"]],
     r_treat_ed = dp[["r_treat_ed"]],
     ncores = ncores,
+    static_scheduling = static_scheduling,
     is_windows = is_windows
   )
 
@@ -188,85 +194,88 @@ synthReturn <- function(
     n_treat <- length(dp[["r_treat"]])
     dp[["r_treat"]] <- NULL
 
-    # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
     ngroup_min <- floor(ngroup*n_treat)
-    cid_placebo <- sapply(dp[["r_control"]], function(r_control_ed) {
-      r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
-      if(length(r_control_ed_units) >= ngroup_min) {
-        return(r_control_ed_units)
-      } else {
-        return(NULL)
-      }
-    }, simplify = FALSE)
-
-    # cid_placebo: list of event date data tables denoting the control unit_ids for that event date; columns: unit_id
 
     # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
     if(ncores == 1L) {
-      pids <- data.table::rbindlist(
-        lapply(
-          cid_placebo,
-          function(cids) {
-            if(is.null(cids)) {
-              return(NULL)
-            }
-            phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
-              sample_cids <- sample(cids, n_treat, TRUE)
-              phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
-              return(phi_placebo_draw)
-            }))
-            return(phi_placebo_ed)
+      phi_placebo <- lapply(
+        dp[["r_control"]],
+        function(r_control_ed) {
+          r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+          # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+          if(length(r_control_ed_units) < ngroup_min) {
+            return(NULL)
           }
-        )
+          phi_placebo_ed <- lapply(1:ndraws, function(draw) {
+            placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
+            phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
+              eventwind = eventwind)
+            return(phi_placebo_draw)
+          })
+          n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+          phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
+          return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+        }
       )
     } else {
       if(is_windows) {
-        pids <- data.table::rbindlist(
-          mirai::mirai_map(
-            cid_placebo,
-            function(cids, ndraws, n_treat, r_control, estwind) {
-              if(is.null(cids)) {
-                return(NULL)
-              }
-              phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
-                sample_cids <- sample(cids, n_treat, TRUE)
-                phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
-                return(phi_placebo_draw)
-              }))
-              return(phi_placebo_ed)
-            },
-            .args = list(
-              ndraws = ndraws,
-              n_treat = n_treat,
-              r_control = r_control,
-              estwind = estwind
-            ),
-            .compute = "synthReturn"
-          )[]
-        )
-      } else {
-        pids <- data.table::rbindlist(
-          parallel::mclapply(
-            cid_placebo,
-            function(cids, ndraws, n_treat, r_control, estwind) {
-              if(is.null(cids)) {
-                return(NULL)
-              }
-              phi_placebo_ed <- data.table::rbindlist(lapply(1:ndraws, function(draw) {
-                sample_cids <- sample(cids, n_treat, TRUE)
-                phi_placebo_draw <- phi_comp_placebo(p_treat = sample_cids, dt_control = r_control, estwind = estwind)
-                return(phi_placebo_draw)
-              }))
-              return(phi_placebo_ed)
-            },
-            n_treat = n_treat,
+        phi_placebo <- mirai::mirai_map(
+          dp[["r_control"]],
+          function(r_control_ed) {
+            r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+            # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+            if(length(r_control_ed_units) < ngroup_min) {
+              return(NULL)
+            }
+            phi_placebo_ed <- lapply(1:ndraws, function(draw) {
+              placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
+              phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
+                eventwind = eventwind)
+              return(phi_placebo_draw)
+            })
+            n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+            phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
+            return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+          },
+          .args = list(
             ndraws = ndraws,
-            r_control = r_control,
-            mc.cores = ncores
-          )
+            n_treat = n_treat,
+            ngroup_min = ngroup_min,
+            estwind = estwind,
+            eventwind = eventwind
+          ),
+          .compute = "synthReturn"
+        )[]
+      } else {
+        phi_placebo <- parallel::mclapply(
+          dp[["r_control"]],
+          function(r_control_ed) {
+            r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+            # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+            if(length(r_control_ed_units) < ngroup_min) {
+              return(NULL)
+            }
+            phi_placebo_ed <- lapply(1:ndraws, function(draw) {
+              placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
+              phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
+                eventwind = eventwind)
+              return(phi_placebo_draw)
+            })
+            n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+            phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
+            return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+          },
+          ndraws = ndraws,
+          n_treat = n_treat,
+          ngroup_min = ngroup_min,
+          estwind = estwind,
+          eventwind = eventwind,
+          mc.cores = ncores,
+          mc.preschedule = static_scheduling
         )
       }
     }
+    rm(dp)
 
     if(is_windows && ncores != 1L) {
       mirai::daemons(0L, .compute = "synthReturn")
@@ -274,7 +283,8 @@ synthReturn <- function(
     }
 
     # get number of placebo treatment effects
-    n_placebo <- data.table::uniqueN(phi_placebo, by = "pid")
+    n_placebo <- sum(vapply(phi_placebo, `[[`, integer(1L), "n_results_placebo_ed", USE.NAMES = FALSE), na.rm = TRUE)
+    phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
 
     # calculate CI intervals
     phi_CI90 = phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]

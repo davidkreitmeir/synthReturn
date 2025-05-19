@@ -29,7 +29,14 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
 
   out <- tryCatch({
     # get set of all "potential" control companies for event date
-    r_control <- dt_control[[as.character(treat_ed)]]
+    if(is.null(treat_ed)) {
+      # phi_comp_placebo case
+      r_control <- dt_control
+    } else {
+      # phi_comp case
+      r_control <- dt_control[[as.character(treat_ed)]]
+    }
+
     ndt_treat <- nrow(dt_treat)
 
     # select control companies
@@ -51,6 +58,8 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
     ARs[, c("car_wgted", "one_div_sigma") := list(cumsum(ar) / sigma, 1 / sigma)]
     # filter out CARs or sigma's that are infinite or missing (perfect prediction by synthetic returns)
     ARs <- ARs[is.finite(car_wgted) & is.finite(one_div_sigma),]
+
+    # ARs: data table with rows in eventwind period; columns: ar, sigma, tau, car_wgted, one_div_sigma
 
     return(ARs)
   }, error = function(x) return(NULL))
