@@ -41,6 +41,7 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
       ARs <- data.table::rbindlist(
         parallel::clusterMap(
           cl,
+          event_panel,
           dt_treat = r_treat,
           treat_ed = r_treat_ed,
           MoreArgs = list(

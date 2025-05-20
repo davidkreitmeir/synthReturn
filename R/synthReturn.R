@@ -223,7 +223,7 @@ synthReturn <- function(
       if(is_windows) {
         phi_placebo <- mirai::mirai_map(
           dp[["r_control"]],
-          function(r_control_ed, ndraw, n_treat, ngroup_min, estwind, eventwind) {
+          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
@@ -251,7 +251,7 @@ synthReturn <- function(
       } else {
         phi_placebo <- parallel::mclapply(
           dp[["r_control"]],
-          function(r_control_ed, ndraw, n_treat, ngroup_min, estwind, eventwind) {
+          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {

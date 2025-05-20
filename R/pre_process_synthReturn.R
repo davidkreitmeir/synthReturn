@@ -319,7 +319,6 @@ pre_process_synthReturn <- function(
       r_control <- mirai::mirai_map(
         eds,
         get_control_set,
-        get_set = get_set,
         .args = list(
           cdata = r_control,
           estwind = estwind,
