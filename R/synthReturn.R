@@ -180,6 +180,8 @@ synthReturn <- function(
     r_treat = dp[["r_treat"]],
     r_control = dp[["r_control"]],
     r_treat_ed = dp[["r_treat_ed"]],
+    estwind = estwind,
+    eventwind = eventwind,
     ncores = ncores,
     static_scheduling = static_scheduling,
     is_windows = is_windows
