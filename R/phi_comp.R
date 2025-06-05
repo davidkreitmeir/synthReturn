@@ -74,6 +74,10 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
     }
   }
 
+  if(nrow(ARs) == 0L) {
+    stop("phi could not be computed. Make sure that (i) there are control units observed on all observed days of treatment units and (ii) their returns ",
+      "vary over time.")
+  }
   # compute phi - equ. (7)
   phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
   out <- list(phi = phi, ar = ARs)
