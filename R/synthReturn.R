@@ -206,7 +206,7 @@ synthReturn <- function(
           r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
           # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
           if(length(r_control_ed_units) < ngroup_min) {
-            list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL)
+            return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
           }
           phi_placebo_ed <- lapply(1:ndraws, function(draw) {
             placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
@@ -227,7 +227,7 @@ synthReturn <- function(
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
-              list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL)
+              return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
             }
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
@@ -255,7 +255,7 @@ synthReturn <- function(
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
-              list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL)
+              return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
             }
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
