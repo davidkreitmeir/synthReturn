@@ -367,7 +367,7 @@ synthReturn <- function(
         .compute = "synthReturn"
         )[]
       } else {
-        phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw) {
+        phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
           # sample treatment units
           treat_sample <- sample.int(n_treat, n_treat, TRUE)
           dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
