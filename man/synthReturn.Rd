@@ -15,7 +15,7 @@ synthReturn(
   eventwind,
   estobs_min = 1,
   eventobs_min = 1,
-  placebo = TRUE,
+  inference = c("none", "permutation", "bootstrap"),
   ngroup = 2,
   ndraws = 25,
   ncores = NULL,
@@ -46,8 +46,6 @@ interval only considers observed days. See details.}
 \item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
 integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
 
-\item{placebo}{Logical denoting whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}.}
-
 \item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
 
@@ -58,6 +56,8 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 \item{static_scheduling}{Logical setting the parallel scheduling type on unix-like operating systems. \code{TRUE} (default) implies static scheduling,
 \code{FALSE} dynamic scheduling. This parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no
 effect on Windows machines or when \code{ncores = 1}.}
+
+\item{placebo}{Logical denoting whether inference via placebo treatment group effects should be drawn. Default is \code{TRUE}.}
 }
 \value{
 An S3 object containing the following components:

@@ -15,7 +15,7 @@ pre_process_synthReturn(
   eventwind,
   estobs_min,
   eventobs_min,
-  placebo,
+  inference,
   ngroup,
   ndraws,
   ncores,

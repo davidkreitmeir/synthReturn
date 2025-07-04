@@ -127,7 +127,7 @@ synthReturn <- function(
   eventwind,
   estobs_min = 1,
   eventobs_min = 1,
-  placebo = TRUE,
+  inference = c("none", "permutation", "bootstrap"),
   ngroup = 2,
   ndraws = 25,
   ncores = NULL,
@@ -149,6 +149,9 @@ synthReturn <- function(
 
   #-----------------------------------------------------------------------------
   # Pre-process data
+  # make sure inference is "none", "permutation", or "bootstrap"
+  inference <- match.arg(inference)
+
   dp <- pre_process_synthReturn(
     DT = data,
     unitname = unitname,
@@ -160,7 +163,7 @@ synthReturn <- function(
     eventwind = eventwind,
     estobs_min = estobs_min,
     eventobs_min = eventobs_min,
-    placebo = placebo,
+    inference = inference,
     ngroup = ngroup,
     ndraws = ndraws,
     ncores = ncores,
@@ -190,7 +193,7 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
 
-  if(placebo) {
+  if(inference == "permutation") {
 
     # number of treated units
     n_treat <- length(dp[["r_treat"]])
@@ -289,21 +292,149 @@ synthReturn <- function(
     phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
 
     # calculate CI intervals
-    phi_CI90 = phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
-    phi_CI95 = phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
-    phi_CI99 = phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
+    phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
+    phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
+    phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
     # return all information of interest
     out <- list(
       ate = res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"],
       ar = res[["ar"]],
-      placebo = list(phi_placebo = phi_placebo, n_placebo = n_placebo)
+      ate_placebo = phi_placebo,
+      n_placebo = n_placebo
+    )
+
+  } else if(inference == "bootstrap") {
+
+    n_treat <- length(dp[["r_treat"]])
+    if(ncores == 1L) {
+      phi_bootstrap <- lapply(1:ndraws, function(draw) {
+        # sample treatment units
+        treat_sample <- sample.int(n_treat, n_treat, TRUE)
+        dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
+        dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
+        phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
+            return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+          },
+          r_treat_sample = dp[["r_treat"]],
+          r_treat_sample_ed = dp[["r_treat_ed"]],
+          MoreArgs = list(
+            r_control = dp[["r_control"]],
+            estwind = estwind,
+            eventwind = eventwind
+          ),
+          SIMPLIFY = FALSE,
+          USE.NAMES = FALSE
+        )
+        n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+        phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+        # compute phi - equ. (7)
+        phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+        return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+      })
+    } else {
+      if(is_windows) {
+        phi_bootstrap <- mirai::mirai_map(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
+          # sample treatment units
+          treat_sample <- sample.int(n_treat, n_treat, TRUE)
+          dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
+          dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
+          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
+              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+            },
+            r_treat_sample = dp[["r_treat"]],
+            r_treat_sample_ed = dp[["r_treat_ed"]],
+            MoreArgs = list(
+              r_control = dp[["r_control"]],
+              estwind = estwind,
+              eventwind = eventwind
+            ),
+            SIMPLIFY = FALSE,
+            USE.NAMES = FALSE
+          )
+          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+          # compute phi - equ. (7)
+          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+        },
+        .args = list(
+          n_treat = n_treat,
+          dp = dp,
+          estwind = estwind,
+          eventwind = eventwind
+        ),
+        .compute = "synthReturn"
+        )[]
+      } else {
+        phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw) {
+          # sample treatment units
+          treat_sample <- sample.int(n_treat, n_treat, TRUE)
+          dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
+          dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
+          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
+              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+            },
+            r_treat_sample = dp[["r_treat"]],
+            r_treat_sample_ed = dp[["r_treat_ed"]],
+            MoreArgs = list(
+              r_control = dp[["r_control"]],
+              estwind = estwind,
+              eventwind = eventwind
+            ),
+            SIMPLIFY = FALSE,
+            USE.NAMES = FALSE
+          )
+          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+          # compute phi - equ. (7)
+          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+        },
+        n_treat = n_treat,
+        dp = dp,
+        estwind = estwind,
+        eventwind = eventwind,
+        mc.cores = ncores,
+        mc.preschedule = static_scheduling
+        )
+      }
+    }
+    rm(dp)
+
+    if(is_windows && ncores != 1L) {
+      mirai::daemons(0L, .compute = "synthReturn")
+      on.exit()
+    }
+
+    # get number of placebo treatment effects
+    n_bootstrap <- sum(vapply(phi_bootstrap, `[[`, integer(1L), "n_results_bootstrap_draw", USE.NAMES = FALSE), na.rm = TRUE)
+    phi_bootstrap <- data.table::rbindlist(lapply(phi_bootstrap, `[[`, "phi_bootstrap_draw"))
+
+    # calculate standard errors
+    se_phi_bootstrap <- phi_bootstrap[, .(se_phi = stats::sd(phi, na.rm = TRUE)), by = "tau"]
+
+    # merge baseline phi to bootstrap standard errors
+    se_phi_bootstrap <- se_phi_bootstrap[res[["phi"]], on = "tau"]
+
+    # calculate CI intervals
+    se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - se_phi * stats::qnorm(0.95), phi + se_phi * stats::qnorm(0.95))]
+    se_phi_bootstrap[, c("ci_95_lower", "ci_95_upper") := list(phi - se_phi * stats::qnorm(0.975), phi + se_phi * stats::qnorm(0.975))]
+    se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - se_phi * stats::qnorm(0.995), phi + se_phi * stats::qnorm(0.995))]
+
+    # return all information of interest
+    out <- list(
+      ate = se_phi_bootstrap[],
+      ar = res[["ar"]],
+      ate_bootstrap = phi_bootstrap,
+      n_bootstrap = n_bootstrap
     )
 
   } else {
+    # inference = "none"
 
     # return all information of interest (no CIs)
-    out <- list(ate = res[["phi"]], ar = res[["ar"]], placebo = list(phi_placebo = NULL, n_placebo = NULL))
+    out <- list(ate = res[["phi"]], ar = res[["ar"]])
   }
 
   # record the call

@@ -49,7 +49,7 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
     # filter control corp set
     r_control <- r_control[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r", "tau"), nomatch = NULL, on = "d"]
     rm(cids)
-    dt_treat[, d := NULL]
+    # dt_treat[, d := NULL]
     data.table::setorder(r_control, unit_id)
 
     ARs <- ar_comp(dt_treat, r_control, estwind, eventwind)

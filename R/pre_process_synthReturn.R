@@ -15,7 +15,7 @@ pre_process_synthReturn <- function(
   eventwind,
   estobs_min,
   eventobs_min,
-  placebo,
+  inference,
   ngroup,
   ndraws,
   ncores,
@@ -146,13 +146,8 @@ pre_process_synthReturn <- function(
     stop("The value of eventobs_min has to be either between [0,1] or an integer <= length of the event window.")
   }
 
-  # make sure placebo is TRUE or FALSE
-  if(length(placebo) != 1L || !is.logical(placebo) || is.na(placebo)) {
-    stop("placebo must be either TRUE or FALSE.")
-  }
-
-  # check placebo options
-  if(placebo){
+  # check inference options
+  if(inference != "none") {
     if(length(ndraws) != 1L || !is.numeric(ndraws) || !is.finite(ndraws)) {
       stop("ndraws must be numeric and of length one.")
     }
