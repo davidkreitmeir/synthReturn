@@ -248,7 +248,7 @@ synthReturn <- function(
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
               phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-                eventwind = eventwind, sigma_cutoff, sigma_cutoff)
+                eventwind = eventwind, sigma_cutoff = sigma_cutoff)
               return(phi_placebo_draw)
             })
             n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
@@ -260,7 +260,8 @@ synthReturn <- function(
             n_treat = n_treat,
             ngroup_min = ngroup_min,
             estwind = estwind,
-            eventwind = eventwind
+            eventwind = eventwind,
+            sigma_cutoff = sigma_cutoff
           ),
           .compute = "synthReturn"
         )[]
@@ -288,6 +289,7 @@ synthReturn <- function(
           ngroup_min = ngroup_min,
           estwind = estwind,
           eventwind = eventwind,
+          sigma_cutoff = sigma_cutoff,
           mc.cores = ncores,
           mc.preschedule = static_scheduling
         )
