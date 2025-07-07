@@ -21,7 +21,10 @@
 #' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
-#' @param placebo Logical denoting whether inference via placebo treatment group effects should be drawn. Default is `TRUE`.
+#' @param inference Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is `"none"`.
+#' @param correction Logical defining if "corrected" synthetic matching results are used for inference. Can only be used in combination with `inference = "permutation"`
+#' If `TRUE` firms that do not have a good synthetic match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average
+#' \eqn{\hat{\sigma}} of the treated firms. Default is `FALSE`.
 #' @param ndraws Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
@@ -128,6 +131,7 @@ synthReturn <- function(
   estobs_min = 1,
   eventobs_min = 1,
   inference = c("none", "permutation", "bootstrap"),
+  correction = FALSE,
   ngroup = 2,
   ndraws = 25,
   ncores = NULL,
@@ -164,6 +168,7 @@ synthReturn <- function(
     estobs_min = estobs_min,
     eventobs_min = eventobs_min,
     inference = inference,
+    correction = correction,
     ngroup = ngroup,
     ndraws = ndraws,
     ncores = ncores,
@@ -201,6 +206,14 @@ synthReturn <- function(
 
     ngroup_min <- floor(ngroup*n_treat)
 
+    if(correction){
+      sigma_cutoff <- res[["ar"]]
+      sigma_cutoff <- sigma_cutoff[tau == 0][["sigma"]]
+      sigma_cutoff <- sqrt(3)*mean(sigma_cutoff)
+    } else {
+      sigma_cutoff <- NULL
+    }
+
     # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
     if(ncores == 1L) {
       phi_placebo <- lapply(
@@ -214,7 +227,7 @@ synthReturn <- function(
           phi_placebo_ed <- lapply(1:ndraws, function(draw) {
             placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
             phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-              eventwind = eventwind)
+              eventwind = eventwind, sigma_cutoff = sigma_cutoff)
             return(phi_placebo_draw)
           })
           n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
@@ -226,7 +239,7 @@ synthReturn <- function(
       if(is_windows) {
         phi_placebo <- mirai::mirai_map(
           dp[["r_control"]],
-          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
+          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
@@ -235,7 +248,7 @@ synthReturn <- function(
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
               phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-                eventwind = eventwind)
+                eventwind = eventwind, sigma_cutoff, sigma_cutoff)
               return(phi_placebo_draw)
             })
             n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
@@ -254,7 +267,7 @@ synthReturn <- function(
       } else {
         phi_placebo <- parallel::mclapply(
           dp[["r_control"]],
-          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
+          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
@@ -263,7 +276,7 @@ synthReturn <- function(
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
               phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-                eventwind = eventwind)
+                eventwind = eventwind, sigma_cutoff = sigma_cutoff)
               return(phi_placebo_draw)
             })
             n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)

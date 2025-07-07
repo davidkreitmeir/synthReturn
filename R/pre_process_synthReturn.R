@@ -16,6 +16,7 @@ pre_process_synthReturn <- function(
   estobs_min,
   eventobs_min,
   inference,
+  correction,
   ngroup,
   ndraws,
   ncores,
@@ -174,6 +175,17 @@ pre_process_synthReturn <- function(
   # Check scheduling choice
   if(length(static_scheduling) != 1L || !is.logical(static_scheduling) || is.na(static_scheduling)) {
     stop("static_scheduling must be either TRUE or FALSE.")
+  }
+
+  # Check inference correction choice
+  if(inference == "permutation"){
+    if(length(correction) != 1L || !is.logical(correction) || is.na(correction)) {
+      stop("correction must be either TRUE or FALSE.")
+    }
+  } else {
+    if(correction){
+      warning("correction only available for permutation inference")
+    }
   }
 
   # Check if unit_id is unique by dname
