@@ -173,7 +173,7 @@ synthReturn <- function(
 
   # dp[["r_treat"]]: list of unit-specific data tables; columns: d, r, tau; sorted by d; list elements are not named
   # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r, tau; sorted by unit_id, d; list elements are named according to ed value
-  # dp[["r_treat_unit_ed"]]: vector of treat unit ids; same order is r_treat list elements
+  # dp[["r_treat_ed"]]: character vector of treat units' event dates; same order is r_treat list elements
 
   #-----------------------------------------------------------------------------
   # Implement the methods
@@ -199,7 +199,7 @@ synthReturn <- function(
     n_treat <- length(dp[["r_treat"]])
     dp[["r_treat"]] <- NULL
 
-    ngroup_min <- floor(ngroup*n_treat)
+    ngroup_min <- floor(ngroup * n_treat)
 
     # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
     if(ncores == 1L) {
@@ -311,13 +311,11 @@ synthReturn <- function(
       phi_bootstrap <- lapply(1:ndraws, function(draw) {
         # sample treatment units
         treat_sample <- sample.int(n_treat, n_treat, TRUE)
-        dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
-        dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
         phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
             return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
           },
-          r_treat_sample = dp[["r_treat"]],
-          r_treat_sample_ed = dp[["r_treat_ed"]],
+          r_treat_sample = dp[["r_treat"]][treat_sample],
+          r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
           MoreArgs = list(
             r_control = dp[["r_control"]],
             estwind = estwind,
@@ -337,13 +335,11 @@ synthReturn <- function(
         phi_bootstrap <- mirai::mirai_map(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
           # sample treatment units
           treat_sample <- sample.int(n_treat, n_treat, TRUE)
-          dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
-          dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
           phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
               return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
             },
-            r_treat_sample = dp[["r_treat"]],
-            r_treat_sample_ed = dp[["r_treat_ed"]],
+            r_treat_sample = dp[["r_treat"]][treat_sample],
+            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
             MoreArgs = list(
               r_control = dp[["r_control"]],
               estwind = estwind,
@@ -370,13 +366,11 @@ synthReturn <- function(
         phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
           # sample treatment units
           treat_sample <- sample.int(n_treat, n_treat, TRUE)
-          dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
-          dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
           phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
               return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
             },
-            r_treat_sample = dp[["r_treat"]],
-            r_treat_sample_ed = dp[["r_treat_ed"]],
+            r_treat_sample = dp[["r_treat"]][treat_sample],
+            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
             MoreArgs = list(
               r_control = dp[["r_control"]],
               estwind = estwind,

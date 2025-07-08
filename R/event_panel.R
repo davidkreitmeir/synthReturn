@@ -34,7 +34,7 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
       r_control <- dt_control
     } else {
       # phi_comp case
-      r_control <- dt_control[[as.character(treat_ed)]]
+      r_control <- dt_control[[treat_ed]]
     }
 
     ndt_treat <- nrow(dt_treat)

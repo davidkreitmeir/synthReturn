@@ -20,14 +20,19 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
 
   out <- tryCatch({
 
+    # assign new unit ids because placebo group was drawn with replacement, and multiple instances of the same unit must be considered separate
+    placebo_treat_ids <- data.table::data.table(unit_id = placebo_treat_ids, new_unit_id = 1:length(placebo_treat_ids))
+
     # get returns of placebo treatment firms
-    r_treat_placebo <- r_control_ed[.(placebo_treat_ids), nomatch = NULL, on = "unit_id"]
+    r_treat_placebo <- r_control_ed[placebo_treat_ids, -"unit_id", nomatch = NULL, on = "unit_id"]
 
     # split by placebo treated firm
-    r_treat_placebo <- split(r_treat_placebo, by = "unit_id", keep.by = FALSE)
+    r_treat_placebo <- split(r_treat_placebo, by = "new_unit_id", keep.by = FALSE)
+
+    placebo_treat_ids[, new_unit_id := NULL]
 
     # drop placebo treated companies from control group
-    r_control_placebo <- r_control_ed[!.(placebo_treat_ids), on = "unit_id"]
+    r_control_placebo <- r_control_ed[!placebo_treat_ids, on = "unit_id"]
 
     # obtain event panel for each treatment group
     # compute abnormal returns (ARs) for each placebo treatment group firm

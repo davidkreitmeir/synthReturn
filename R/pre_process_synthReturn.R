@@ -295,7 +295,7 @@ pre_process_synthReturn <- function(
   }
   r_treat_not_null <- !vapply(r_treat, is.null, logical(1L), USE.NAMES = FALSE)
   r_treat <- r_treat[r_treat_not_null]
-  r_treat_ed <- r_treat_ed[r_treat_not_null,]
+  r_treat_ed <- r_treat_ed[r_treat_not_null,] # selected treatment units' event dates
 
   # reshape control returns
   eds <- unique(r_treat_ed[, "ed"])[["ed"]]
@@ -342,7 +342,7 @@ pre_process_synthReturn <- function(
   out <- list(
     r_treat = r_treat,
     r_control = r_control,
-    r_treat_ed = r_treat_ed[["ed"]]
+    r_treat_ed = as.character(r_treat_ed[["ed"]])
   )
 
   return(out)
