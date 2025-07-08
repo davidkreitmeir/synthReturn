@@ -178,13 +178,13 @@ pre_process_synthReturn <- function(
   }
 
   # Check inference correction choice
-  if(inference == "permutation"){
-    if(length(correction) != 1L || !is.logical(correction) || is.na(correction)) {
-      stop("correction must be either TRUE or FALSE.")
+  if(inference == "none"){
+    if(correction){
+      warning("correction only available for permutation and bootstrapping inference.")
     }
   } else {
-    if(correction){
-      warning("correction only available for permutation inference")
+    if(length(correction) != 1L || !is.logical(correction) || is.na(correction)) {
+      stop("correction must be either TRUE or FALSE.")
     }
   }
 

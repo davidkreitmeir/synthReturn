@@ -4,7 +4,13 @@
 \alias{phi_comp_placebo}
 \title{Function that computes treatment effect for placebo treatment group.}
 \usage{
-phi_comp_placebo(placebo_treat_ids, r_control_ed, estwind, eventwind)
+phi_comp_placebo(
+  placebo_treat_ids,
+  r_control_ed,
+  estwind,
+  eventwind,
+  sigma_cutoff
+)
 }
 \arguments{
 \item{estwind}{Argument to set estimation window period in relative time to event,

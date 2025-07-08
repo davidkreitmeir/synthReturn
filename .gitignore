@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 inst/doc
+.vscode
 **/.DS_Store

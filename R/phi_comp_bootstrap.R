@@ -1,6 +1,6 @@
 
 
-phi_comp_bootstrap <- function(r_treat, r_control, estwind, eventwind) {
+phi_comp_bootstrap <- function(r_treat, r_control, estwind, eventwind, sigma_cutoff) {
   out <- tryCatch({
     # sample control units
     r_control_units <- unique(r_control[, "unit_id"])
@@ -9,6 +9,11 @@ phi_comp_bootstrap <- function(r_treat, r_control, estwind, eventwind) {
     r_control <- r_control[r_control_units, nomatch = NULL, on = "unit_id"]
     # compute ARs with treatment and control sample for specific event date
     ARs <- event_panel(r_treat, NULL, r_control, estwind, eventwind)
+    # If correction is implemented
+    if(!is.null(sigma_cutoff)){
+      # drop all placebo firms that do not have a good synthetic match
+      ARs <- ARs[sigma <= sigma_cutoff,]
+    }
     return(ARs)
   }, error = function(x) return(NULL))
 

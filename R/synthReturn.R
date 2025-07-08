@@ -207,9 +207,7 @@ synthReturn <- function(
     ngroup_min <- floor(ngroup*n_treat)
 
     if(correction){
-      sigma_cutoff <- res[["ar"]]
-      sigma_cutoff <- sigma_cutoff[tau == 0][["sigma"]]
-      sigma_cutoff <- sqrt(3)*mean(sigma_cutoff)
+      sigma_cutoff <- sqrt(3) * mean(res[["ar"]][tau == 0L, "sigma"][["sigma"]], na.rm = TRUE)
     } else {
       sigma_cutoff <- NULL
     }
@@ -328,15 +326,16 @@ synthReturn <- function(
         treat_sample <- sample.int(n_treat, n_treat, TRUE)
         dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
         dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
-        phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-            return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+        phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+            return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
           },
           r_treat_sample = dp[["r_treat"]],
           r_treat_sample_ed = dp[["r_treat_ed"]],
           MoreArgs = list(
             r_control = dp[["r_control"]],
             estwind = estwind,
-            eventwind = eventwind
+            eventwind = eventwind,
+            sigma_cutoff = sigma_cutoff
           ),
           SIMPLIFY = FALSE,
           USE.NAMES = FALSE
@@ -354,15 +353,16 @@ synthReturn <- function(
           treat_sample <- sample.int(n_treat, n_treat, TRUE)
           dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
           dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
-          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
             },
             r_treat_sample = dp[["r_treat"]],
             r_treat_sample_ed = dp[["r_treat_ed"]],
             MoreArgs = list(
               r_control = dp[["r_control"]],
               estwind = estwind,
-              eventwind = eventwind
+              eventwind = eventwind,
+              sigma_cutoff = sigma_cutoff
             ),
             SIMPLIFY = FALSE,
             USE.NAMES = FALSE
@@ -377,7 +377,8 @@ synthReturn <- function(
           n_treat = n_treat,
           dp = dp,
           estwind = estwind,
-          eventwind = eventwind
+          eventwind = eventwind,
+          sigma_cutoff = sigma_cutoff
         ),
         .compute = "synthReturn"
         )[]
@@ -387,15 +388,16 @@ synthReturn <- function(
           treat_sample <- sample.int(n_treat, n_treat, TRUE)
           dp[["r_treat"]] <- dp[["r_treat"]][treat_sample]
           dp[["r_treat_ed"]] <- as.character(dp[["r_treat_ed"]][treat_sample])
-          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
+          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
             },
             r_treat_sample = dp[["r_treat"]],
             r_treat_sample_ed = dp[["r_treat_ed"]],
             MoreArgs = list(
               r_control = dp[["r_control"]],
               estwind = estwind,
-              eventwind = eventwind
+              eventwind = eventwind,
+              sigma_cutoff = sigma_cutoff
             ),
             SIMPLIFY = FALSE,
             USE.NAMES = FALSE
@@ -431,6 +433,7 @@ synthReturn <- function(
 
     # merge baseline phi to bootstrap standard errors
     se_phi_bootstrap <- se_phi_bootstrap[res[["phi"]], on = "tau"]
+    data.table::setcolorder(se_phi_bootstrap, c("tau", "phi", "se_phi"))
 
     # calculate CI intervals
     se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - se_phi * stats::qnorm(0.95), phi + se_phi * stats::qnorm(0.95))]
@@ -471,4 +474,3 @@ synthReturn <- function(
 
   return(out)
 }
-

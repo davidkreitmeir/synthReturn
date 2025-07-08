@@ -46,6 +46,10 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
     cids <- r_control[cids, c("unit_id", "r"), nomatch = NULL, on = "unit_id"][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][
       r_var > 0, "unit_id"]
 
+    if(length(cids) == 0L) {
+      return(NULL)
+    }
+
     # filter control corp set
     r_control <- r_control[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r", "tau"), nomatch = NULL, on = "d"]
     rm(cids)

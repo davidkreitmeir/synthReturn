@@ -43,9 +43,9 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
     )
 
     # If correction is implemented
-    if(length(sigma_cutoff)==1L){
+    if(!is.null(sigma_cutoff)){
       # drop all placebo firms that do not have a good synthetic match
-      ARs <- ARs[sigma <= sigma_cutoff]
+      ARs <- ARs[sigma <= sigma_cutoff,]
     }
 
     # compute phi - equ. (7)
