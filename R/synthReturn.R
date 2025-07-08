@@ -29,9 +29,9 @@
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
-#' @param static_scheduling Logical setting the parallel scheduling type on unix-like operating systems. `TRUE` (default) implies static scheduling,
-#' `FALSE` dynamic scheduling. This parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no
-#' effect on Windows machines or when `ncores = 1`.
+#' @param static_scheduling Logical setting the parallel scheduling type. `TRUE` (default) implies static scheduling, `FALSE` dynamic scheduling. This
+#' parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no effect when `ncores = 1` and in
+#' placebo estimations on Windows machines.
 #'
 #' @details The data's `dname` and `edname` columns refer to dates. `dname` is the date that a row refers to. `edname` is the date when a unit was treated.
 #' I.e., `edname` is constant across all rows per unit. And it is ignored for never treated units.
@@ -145,11 +145,6 @@ synthReturn <- function(
     stop("ncores must be either NULL or a positive integer")
   }
   is_windows <- .Platform$OS.type == "windows"
-  if(is_windows && ncores != 1L) {
-    mirai::daemons(ncores, .compute = "synthReturn")
-    on.exit(mirai::daemons(0L, .compute = "synthReturn"))
-    mirai::everywhere(require("data.table"), .compute = "synthReturn")
-  }
 
   #-----------------------------------------------------------------------------
   # Pre-process data
@@ -241,6 +236,9 @@ synthReturn <- function(
         )
       } else {
         if(is_windows) {
+          mirai::daemons(ncores, .compute = "synthReturn")
+          on.exit(mirai::daemons(0L, .compute = "synthReturn"))
+          mirai::everywhere(require("data.table"), .compute = "synthReturn")
           phi_placebo <- mirai::mirai_map(
             dp[["r_control"]],
             function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
@@ -269,6 +267,8 @@ synthReturn <- function(
             ),
             .compute = "synthReturn"
           )[]
+          mirai::daemons(0L, .compute = "synthReturn")
+          on.exit()
         } else {
           phi_placebo <- parallel::mclapply(
             dp[["r_control"]],
@@ -301,11 +301,6 @@ synthReturn <- function(
       }
       rm(dp)
 
-      if(is_windows && ncores != 1L) {
-        mirai::daemons(0L, .compute = "synthReturn")
-        on.exit()
-      }
-
       # get number of placebo treatment effects
       n_placebo <- sum(vapply(phi_placebo, `[[`, integer(1L), "n_results_placebo_ed", USE.NAMES = FALSE), na.rm = TRUE)
       phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
@@ -324,15 +319,23 @@ synthReturn <- function(
       )
 
     } else if(inference == "bootstrap") {
-      if(ncores == 1L) {
-        phi_bootstrap <- lapply(1:ndraws, function(draw) {
-          # sample treatment units
-          treat_sample <- sample.int(n_treat, n_treat, TRUE)
-          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+      is_single_core <- ncores == 1L
+      if((!is_single_core) && is_windows) {
+        scheduling <- data.table::fifelse(static_scheduling, "static", "dynamic")
+        cl <- mirai::make_cluster(ncores)
+      }
+      phi_bootstrap <- lapply(1:ndraws, function(draw) {
+        # sample treatment units
+        treat_sample <- sample.int(n_treat, n_treat, TRUE)
+        r_treat_sample <- dp[["r_treat"]][treat_sample]
+        r_treat_sample_ed <- dp[["r_treat_ed"]][treat_sample]
+        if(is_single_core) {
+          phi_bootstrap_draw <- mapply(
+            function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
               return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
             },
-            r_treat_sample = dp[["r_treat"]][treat_sample],
-            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
+            r_treat_sample = r_treat_sample,
+            r_treat_sample_ed = r_treat_sample_ed,
             MoreArgs = list(
               r_control = dp[["r_control"]],
               estwind = estwind,
@@ -342,55 +345,30 @@ synthReturn <- function(
             SIMPLIFY = FALSE,
             USE.NAMES = FALSE
           )
-          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-          # compute phi - equ. (7)
-          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-        })
-      } else {
-        if(is_windows) {
-          phi_bootstrap <- mirai::mirai_map(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
-            # sample treatment units
-            treat_sample <- sample.int(n_treat, n_treat, TRUE)
-            phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
-                return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
-              },
-              r_treat_sample = dp[["r_treat"]][treat_sample],
-              r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
-              MoreArgs = list(
-                r_control = dp[["r_control"]],
-                estwind = estwind,
-                eventwind = eventwind,
-                sigma_cutoff = sigma_cutoff
-              ),
-              SIMPLIFY = FALSE,
-              USE.NAMES = FALSE
-            )
-            n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-            phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-            # compute phi - equ. (7)
-            phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-            return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-          },
-          .args = list(
-            n_treat = n_treat,
-            dp = dp,
-            estwind = estwind,
-            eventwind = eventwind,
-            sigma_cutoff = sigma_cutoff
-          ),
-          .compute = "synthReturn"
-          )[]
         } else {
-          phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
-            # sample treatment units
-            treat_sample <- sample.int(n_treat, n_treat, TRUE)
-            phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+          if(is_windows) {
+            phi_bootstrap_draw <- parallel::clusterMap(cl,
+              function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
                 return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
               },
-              r_treat_sample = dp[["r_treat"]][treat_sample],
-              r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
+              r_treat_sample = r_treat_sample,
+              r_treat_sample_ed = r_treat_sample_ed,
+              MoreArgs = list(
+                r_control = dp[["r_control"]],
+                estwind = estwind,
+                eventwind = eventwind,
+                sigma_cutoff = sigma_cutoff
+              ),
+              USE.NAMES = FALSE,
+              .scheduling = scheduling
+            )
+          } else {
+            phi_bootstrap_draw <- parallel::mcmapply(
+              function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+                return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
+              },
+              r_treat_sample = r_treat_sample,
+              r_treat_sample_ed = r_treat_sample_ed,
               MoreArgs = list(
                 r_control = dp[["r_control"]],
                 estwind = estwind,
@@ -398,28 +376,22 @@ synthReturn <- function(
                 sigma_cutoff = sigma_cutoff
               ),
               SIMPLIFY = FALSE,
-              USE.NAMES = FALSE
+              USE.NAMES = FALSE,
+              mc.cores = ncores,
+              mc.preschedule = static_scheduling
             )
-            n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-            phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-            # compute phi - equ. (7)
-            phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-            return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-          },
-          n_treat = n_treat,
-          dp = dp,
-          estwind = estwind,
-          eventwind = eventwind,
-          mc.cores = ncores,
-          mc.preschedule = static_scheduling
-          )
+          }
         }
-      }
+        n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+        phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+        # compute phi - equ. (7)
+        phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+        return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+      })
       rm(dp)
 
-      if(is_windows && ncores != 1L) {
-        mirai::daemons(0L, .compute = "synthReturn")
-        on.exit()
+      if((!is_single_core) && is_windows) {
+        mirai::stop_cluster(cl)
       }
 
       # get number of placebo treatment effects

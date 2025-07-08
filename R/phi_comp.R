@@ -49,8 +49,8 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
             estwind = estwind,
             eventwind = eventwind
           ),
-          SIMPLIFY = FALSE,
-          USE.NAMES = FALSE
+          USE.NAMES = FALSE,
+          .scheduling = data.table::fifelse(static_scheduling, "static", "dynamic")
         )
       )
       mirai::stop_cluster(cl)
