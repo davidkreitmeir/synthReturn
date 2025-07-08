@@ -21,7 +21,10 @@
 #' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
-#' @param placebo Logical denoting whether inference via placebo treatment group effects should be drawn. Default is `TRUE`.
+#' @param inference Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is `"none"`.
+#' @param correction Logical defining if "corrected" synthetic matching results are used for inference. Can only be used in combination with `inference = "permutation"`
+#' If `TRUE` firms that do not have a good synthetic match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average
+#' \eqn{\hat{\sigma}} of the treated firms. Default is `FALSE`.
 #' @param ndraws Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.
 #' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
 #' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
@@ -128,6 +131,7 @@ synthReturn <- function(
   estobs_min = 1,
   eventobs_min = 1,
   inference = c("none", "permutation", "bootstrap"),
+  correction = FALSE,
   ngroup = 2,
   ndraws = 25,
   ncores = NULL,
@@ -164,6 +168,7 @@ synthReturn <- function(
     estobs_min = estobs_min,
     eventobs_min = eventobs_min,
     inference = inference,
+    correction = correction,
     ngroup = ngroup,
     ndraws = ndraws,
     ncores = ncores,
@@ -193,40 +198,31 @@ synthReturn <- function(
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
 
-  if(inference == "permutation") {
+  if(inference == "none") {
+    # return all information of interest (no CIs)
+    out <- list(ate = res[["phi"]], ar = res[["ar"]])
+
+  } else {
+
+    if(correction){
+      sigma_cutoff <- sqrt(3) * mean(res[["ar"]][tau == 0L, "sigma"][["sigma"]], na.rm = TRUE)
+    } else {
+      sigma_cutoff <- NULL
+    }
 
     # number of treated units
     n_treat <- length(dp[["r_treat"]])
-    dp[["r_treat"]] <- NULL
 
-    ngroup_min <- floor(ngroup * n_treat)
+    if(inference == "permutation") {
 
-    # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
-    if(ncores == 1L) {
-      phi_placebo <- lapply(
-        dp[["r_control"]],
-        function(r_control_ed) {
-          r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
-          # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
-          if(length(r_control_ed_units) < ngroup_min) {
-            return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
-          }
-          phi_placebo_ed <- lapply(1:ndraws, function(draw) {
-            placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
-            phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-              eventwind = eventwind)
-            return(phi_placebo_draw)
-          })
-          n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-          phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
-          return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
-        }
-      )
-    } else {
-      if(is_windows) {
-        phi_placebo <- mirai::mirai_map(
+      dp[["r_treat"]] <- NULL
+      ngroup_min <- floor(ngroup * n_treat)
+
+      # ndraws random draws of placebo treatment groups of size n (with replacement) for each (unique) event date
+      if(ncores == 1L) {
+        phi_placebo <- lapply(
           dp[["r_control"]],
-          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
+          function(r_control_ed) {
             r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
             # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
             if(length(r_control_ed_units) < ngroup_min) {
@@ -235,200 +231,221 @@ synthReturn <- function(
             phi_placebo_ed <- lapply(1:ndraws, function(draw) {
               placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
               phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-                eventwind = eventwind)
+                eventwind = eventwind, sigma_cutoff = sigma_cutoff)
               return(phi_placebo_draw)
             })
             n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
             phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
             return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
-          },
-          .args = list(
+          }
+        )
+      } else {
+        if(is_windows) {
+          phi_placebo <- mirai::mirai_map(
+            dp[["r_control"]],
+            function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
+              r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+              # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+              if(length(r_control_ed_units) < ngroup_min) {
+                return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
+              }
+              phi_placebo_ed <- lapply(1:ndraws, function(draw) {
+                placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
+                phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
+                  eventwind = eventwind, sigma_cutoff = sigma_cutoff)
+                return(phi_placebo_draw)
+              })
+              n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+              phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
+              return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+            },
+            .args = list(
+              ndraws = ndraws,
+              n_treat = n_treat,
+              ngroup_min = ngroup_min,
+              estwind = estwind,
+              eventwind = eventwind,
+              sigma_cutoff = sigma_cutoff
+            ),
+            .compute = "synthReturn"
+          )[]
+        } else {
+          phi_placebo <- parallel::mclapply(
+            dp[["r_control"]],
+            function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
+              r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
+              # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
+              if(length(r_control_ed_units) < ngroup_min) {
+                return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
+              }
+              phi_placebo_ed <- lapply(1:ndraws, function(draw) {
+                placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
+                phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
+                  eventwind = eventwind, sigma_cutoff = sigma_cutoff)
+                return(phi_placebo_draw)
+              })
+              n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+              phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
+              return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+            },
             ndraws = ndraws,
             n_treat = n_treat,
             ngroup_min = ngroup_min,
             estwind = estwind,
-            eventwind = eventwind
+            eventwind = eventwind,
+            sigma_cutoff = sigma_cutoff,
+            mc.cores = ncores,
+            mc.preschedule = static_scheduling
+          )
+        }
+      }
+      rm(dp)
+
+      if(is_windows && ncores != 1L) {
+        mirai::daemons(0L, .compute = "synthReturn")
+        on.exit()
+      }
+
+      # get number of placebo treatment effects
+      n_placebo <- sum(vapply(phi_placebo, `[[`, integer(1L), "n_results_placebo_ed", USE.NAMES = FALSE), na.rm = TRUE)
+      phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
+
+      # calculate CI intervals
+      phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
+      phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
+      phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
+
+      # return all information of interest
+      out <- list(
+        ate = res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"],
+        ar = res[["ar"]],
+        ate_placebo = phi_placebo,
+        n_placebo = n_placebo
+      )
+
+    } else if(inference == "bootstrap") {
+      if(ncores == 1L) {
+        phi_bootstrap <- lapply(1:ndraws, function(draw) {
+          # sample treatment units
+          treat_sample <- sample.int(n_treat, n_treat, TRUE)
+          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
+            },
+            r_treat_sample = dp[["r_treat"]][treat_sample],
+            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
+            MoreArgs = list(
+              r_control = dp[["r_control"]],
+              estwind = estwind,
+              eventwind = eventwind,
+              sigma_cutoff = sigma_cutoff
+            ),
+            SIMPLIFY = FALSE,
+            USE.NAMES = FALSE
+          )
+          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+          # compute phi - equ. (7)
+          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+        })
+      } else {
+        if(is_windows) {
+          phi_bootstrap <- mirai::mirai_map(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
+            # sample treatment units
+            treat_sample <- sample.int(n_treat, n_treat, TRUE)
+            phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+                return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
+              },
+              r_treat_sample = dp[["r_treat"]][treat_sample],
+              r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
+              MoreArgs = list(
+                r_control = dp[["r_control"]],
+                estwind = estwind,
+                eventwind = eventwind,
+                sigma_cutoff = sigma_cutoff
+              ),
+              SIMPLIFY = FALSE,
+              USE.NAMES = FALSE
+            )
+            n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+            phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+            # compute phi - equ. (7)
+            phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+            return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
+          },
+          .args = list(
+            n_treat = n_treat,
+            dp = dp,
+            estwind = estwind,
+            eventwind = eventwind,
+            sigma_cutoff = sigma_cutoff
           ),
           .compute = "synthReturn"
-        )[]
-      } else {
-        phi_placebo <- parallel::mclapply(
-          dp[["r_control"]],
-          function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind) {
-            r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
-            # restrict set of placebo event dates by minimum number of control firms in event(-date) panel
-            if(length(r_control_ed_units) < ngroup_min) {
-              return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
-            }
-            phi_placebo_ed <- lapply(1:ndraws, function(draw) {
-              placebo_treat_ids <- sample(r_control_ed_units, n_treat, TRUE) # control unit ids chosen as placebo treatment group
-              phi_placebo_draw <- phi_comp_placebo(placebo_treat_ids = placebo_treat_ids, r_control_ed = r_control_ed, estwind = estwind,
-                eventwind = eventwind)
-              return(phi_placebo_draw)
-            })
-            n_results_placebo_ed <- sum(!vapply(phi_placebo_ed, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-            phi_placebo_ed <- data.table::rbindlist(phi_placebo_ed)
-            return(list(n_results_placebo_ed = n_results_placebo_ed, phi_placebo_ed = phi_placebo_ed))
+          )[]
+        } else {
+          phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
+            # sample treatment units
+            treat_sample <- sample.int(n_treat, n_treat, TRUE)
+            phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind, sigma_cutoff) {
+                return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind, sigma_cutoff))
+              },
+              r_treat_sample = dp[["r_treat"]][treat_sample],
+              r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
+              MoreArgs = list(
+                r_control = dp[["r_control"]],
+                estwind = estwind,
+                eventwind = eventwind,
+                sigma_cutoff = sigma_cutoff
+              ),
+              SIMPLIFY = FALSE,
+              USE.NAMES = FALSE
+            )
+            n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+            phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
+            # compute phi - equ. (7)
+            phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+            return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
           },
-          ndraws = ndraws,
           n_treat = n_treat,
-          ngroup_min = ngroup_min,
+          dp = dp,
           estwind = estwind,
           eventwind = eventwind,
           mc.cores = ncores,
           mc.preschedule = static_scheduling
-        )
-      }
-    }
-    rm(dp)
-
-    if(is_windows && ncores != 1L) {
-      mirai::daemons(0L, .compute = "synthReturn")
-      on.exit()
-    }
-
-    # get number of placebo treatment effects
-    n_placebo <- sum(vapply(phi_placebo, `[[`, integer(1L), "n_results_placebo_ed", USE.NAMES = FALSE), na.rm = TRUE)
-    phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
-
-    # calculate CI intervals
-    phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
-    phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
-    phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
-
-    # return all information of interest
-    out <- list(
-      ate = res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"],
-      ar = res[["ar"]],
-      ate_placebo = phi_placebo,
-      n_placebo = n_placebo
-    )
-
-  } else if(inference == "bootstrap") {
-
-    n_treat <- length(dp[["r_treat"]])
-    if(ncores == 1L) {
-      phi_bootstrap <- lapply(1:ndraws, function(draw) {
-        # sample treatment units
-        treat_sample <- sample.int(n_treat, n_treat, TRUE)
-        phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-            return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
-          },
-          r_treat_sample = dp[["r_treat"]][treat_sample],
-          r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
-          MoreArgs = list(
-            r_control = dp[["r_control"]],
-            estwind = estwind,
-            eventwind = eventwind
-          ),
-          SIMPLIFY = FALSE,
-          USE.NAMES = FALSE
-        )
-        n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-        phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-        # compute phi - equ. (7)
-        phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-        return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-      })
-    } else {
-      if(is_windows) {
-        phi_bootstrap <- mirai::mirai_map(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
-          # sample treatment units
-          treat_sample <- sample.int(n_treat, n_treat, TRUE)
-          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
-            },
-            r_treat_sample = dp[["r_treat"]][treat_sample],
-            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
-            MoreArgs = list(
-              r_control = dp[["r_control"]],
-              estwind = estwind,
-              eventwind = eventwind
-            ),
-            SIMPLIFY = FALSE,
-            USE.NAMES = FALSE
           )
-          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-          # compute phi - equ. (7)
-          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-        },
-        .args = list(
-          n_treat = n_treat,
-          dp = dp,
-          estwind = estwind,
-          eventwind = eventwind
-        ),
-        .compute = "synthReturn"
-        )[]
-      } else {
-        phi_bootstrap <- parallel::mclapply(1:ndraws, function(draw, n_treat, dp, estwind, eventwind) {
-          # sample treatment units
-          treat_sample <- sample.int(n_treat, n_treat, TRUE)
-          phi_bootstrap_draw <- mapply(function(r_treat_sample, r_treat_sample_ed, r_control, estwind, eventwind) {
-              return(phi_comp_bootstrap(r_treat_sample, r_control[[r_treat_sample_ed]], estwind, eventwind))
-            },
-            r_treat_sample = dp[["r_treat"]][treat_sample],
-            r_treat_sample_ed = dp[["r_treat_ed"]][treat_sample],
-            MoreArgs = list(
-              r_control = dp[["r_control"]],
-              estwind = estwind,
-              eventwind = eventwind
-            ),
-            SIMPLIFY = FALSE,
-            USE.NAMES = FALSE
-          )
-          n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
-          phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
-          # compute phi - equ. (7)
-          phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
-        },
-        n_treat = n_treat,
-        dp = dp,
-        estwind = estwind,
-        eventwind = eventwind,
-        mc.cores = ncores,
-        mc.preschedule = static_scheduling
-        )
+        }
       }
+      rm(dp)
+
+      if(is_windows && ncores != 1L) {
+        mirai::daemons(0L, .compute = "synthReturn")
+        on.exit()
+      }
+
+      # get number of placebo treatment effects
+      n_bootstrap <- sum(vapply(phi_bootstrap, `[[`, integer(1L), "n_results_bootstrap_draw", USE.NAMES = FALSE), na.rm = TRUE)
+      phi_bootstrap <- data.table::rbindlist(lapply(phi_bootstrap, `[[`, "phi_bootstrap_draw"))
+
+      # calculate standard errors
+      se_phi_bootstrap <- phi_bootstrap[, .(se_phi = stats::sd(phi, na.rm = TRUE)), by = "tau"]
+
+      # merge baseline phi to bootstrap standard errors
+      se_phi_bootstrap <- se_phi_bootstrap[res[["phi"]], on = "tau"]
+      data.table::setcolorder(se_phi_bootstrap, c("tau", "phi", "se_phi"))
+
+      # calculate CI intervals
+      se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - se_phi * stats::qnorm(0.95), phi + se_phi * stats::qnorm(0.95))]
+      se_phi_bootstrap[, c("ci_95_lower", "ci_95_upper") := list(phi - se_phi * stats::qnorm(0.975), phi + se_phi * stats::qnorm(0.975))]
+      se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - se_phi * stats::qnorm(0.995), phi + se_phi * stats::qnorm(0.995))]
+
+      # return all information of interest
+      out <- list(
+        ate = se_phi_bootstrap[],
+        ar = res[["ar"]],
+        ate_bootstrap = phi_bootstrap,
+        n_bootstrap = n_bootstrap
+      )
     }
-    rm(dp)
-
-    if(is_windows && ncores != 1L) {
-      mirai::daemons(0L, .compute = "synthReturn")
-      on.exit()
-    }
-
-    # get number of placebo treatment effects
-    n_bootstrap <- sum(vapply(phi_bootstrap, `[[`, integer(1L), "n_results_bootstrap_draw", USE.NAMES = FALSE), na.rm = TRUE)
-    phi_bootstrap <- data.table::rbindlist(lapply(phi_bootstrap, `[[`, "phi_bootstrap_draw"))
-
-    # calculate standard errors
-    se_phi_bootstrap <- phi_bootstrap[, .(se_phi = stats::sd(phi, na.rm = TRUE)), by = "tau"]
-
-    # merge baseline phi to bootstrap standard errors
-    se_phi_bootstrap <- se_phi_bootstrap[res[["phi"]], on = "tau"]
-
-    # calculate CI intervals
-    se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - se_phi * stats::qnorm(0.95), phi + se_phi * stats::qnorm(0.95))]
-    se_phi_bootstrap[, c("ci_95_lower", "ci_95_upper") := list(phi - se_phi * stats::qnorm(0.975), phi + se_phi * stats::qnorm(0.975))]
-    se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - se_phi * stats::qnorm(0.995), phi + se_phi * stats::qnorm(0.995))]
-
-    # return all information of interest
-    out <- list(
-      ate = se_phi_bootstrap[],
-      ar = res[["ar"]],
-      ate_bootstrap = phi_bootstrap,
-      n_bootstrap = n_bootstrap
-    )
-
-  } else {
-    # inference = "none"
-
-    # return all information of interest (no CIs)
-    out <- list(ate = res[["phi"]], ar = res[["ar"]])
   }
 
   # record the call
@@ -450,4 +467,3 @@ synthReturn <- function(
 
   return(out)
 }
-

@@ -14,7 +14,7 @@
 #'  \item{phi}{(Placebo) treatment effect.}
 #'
 
-phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind) {
+phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind, sigma_cutoff) {
 
   # p_treat: vector of placebo treatment group unit ids
 
@@ -46,6 +46,12 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
         eventwind = eventwind
       )
     )
+
+    # If correction is implemented
+    if(!is.null(sigma_cutoff)){
+      # drop all placebo firms that do not have a good synthetic match
+      ARs <- ARs[sigma <= sigma_cutoff,]
+    }
 
     # compute phi - equ. (7)
     phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]

@@ -16,6 +16,7 @@ pre_process_synthReturn(
   estobs_min,
   eventobs_min,
   inference,
+  correction,
   ngroup,
   ndraws,
   ncores,
