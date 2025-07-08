@@ -60,9 +60,9 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 
 \item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
 
-\item{static_scheduling}{Logical setting the parallel scheduling type on unix-like operating systems. \code{TRUE} (default) implies static scheduling,
-\code{FALSE} dynamic scheduling. This parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no
-effect on Windows machines or when \code{ncores = 1}.}
+\item{static_scheduling}{Logical setting the parallel scheduling type. \code{TRUE} (default) implies static scheduling, \code{FALSE} dynamic scheduling. This
+parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no effect when \code{ncores = 1} and in
+placebo estimations on Windows machines.}
 }
 \value{
 An S3 object containing the following components:

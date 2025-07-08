@@ -145,6 +145,11 @@ synthReturn <- function(
     stop("ncores must be either NULL or a positive integer")
   }
   is_windows <- .Platform$OS.type == "windows"
+  if(is_windows && ncores != 1L) {
+    mirai::daemons(ncores, .compute = "synthReturn")
+    on.exit(mirai::daemons(0L, .compute = "synthReturn"))
+    mirai::everywhere(require("data.table"), .compute = "synthReturn")
+  }
 
   #-----------------------------------------------------------------------------
   # Pre-process data
@@ -170,6 +175,11 @@ synthReturn <- function(
     static_scheduling = static_scheduling,
     is_windows = is_windows
   )
+
+  if(is_windows && ncores != 1L && inference != "permutation") {
+    mirai::daemons(0L, .compute = "synthReturn")
+    on.exit()
+  }
 
   # dp[["r_treat"]]: list of unit-specific data tables; columns: d, r, tau; sorted by d; list elements are not named
   # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r, tau; sorted by unit_id, d; list elements are named according to ed value
@@ -236,9 +246,6 @@ synthReturn <- function(
         )
       } else {
         if(is_windows) {
-          mirai::daemons(ncores, .compute = "synthReturn")
-          on.exit(mirai::daemons(0L, .compute = "synthReturn"))
-          mirai::everywhere(require("data.table"), .compute = "synthReturn")
           phi_placebo <- mirai::mirai_map(
             dp[["r_control"]],
             function(r_control_ed, ndraws, n_treat, ngroup_min, estwind, eventwind, sigma_cutoff) {
