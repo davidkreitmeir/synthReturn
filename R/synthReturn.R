@@ -176,6 +176,8 @@ synthReturn <- function(
     is_windows = is_windows
   )
 
+  message("passed preprocess")
+
   if(is_windows && ncores != 1L && inference != "permutation") {
     mirai::daemons(0L, .compute = "synthReturn")
     on.exit()
@@ -199,6 +201,8 @@ synthReturn <- function(
     static_scheduling = static_scheduling,
     is_windows = is_windows
   )
+
+  message("passed phi comp")
 
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
@@ -310,6 +314,9 @@ synthReturn <- function(
 
       # get number of placebo treatment effects
       n_placebo <- sum(vapply(phi_placebo, `[[`, integer(1L), "n_results_placebo_ed", USE.NAMES = FALSE), na.rm = TRUE)
+      if(n_placebo == 0L) {
+        stop("permutation did not produce any results.")
+      }
       phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_ed"))
 
       # calculate CI intervals
@@ -332,6 +339,7 @@ synthReturn <- function(
         cl <- mirai::make_cluster(ncores)
       }
       phi_bootstrap <- lapply(1:ndraws, function(draw) {
+        timer_draw <- proc.time()[3L]
         # sample treatment units
         treat_sample <- sample.int(n_treat, n_treat, TRUE)
         r_treat_sample <- dp[["r_treat"]][treat_sample]
@@ -390,9 +398,13 @@ synthReturn <- function(
           }
         }
         n_results_bootstrap_draw <- sum(!vapply(phi_bootstrap_draw, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
+        if(n_results_bootstrap_draw == 0L) {
+          return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = NULL))
+        }
         phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
         # compute phi - equ. (7)
         phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
+        print(paste0(draw, " : ", proc.time()[3L] - timer_draw))
         return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
       })
       rm(dp)
@@ -403,6 +415,9 @@ synthReturn <- function(
 
       # get number of placebo treatment effects
       n_bootstrap <- sum(vapply(phi_bootstrap, `[[`, integer(1L), "n_results_bootstrap_draw", USE.NAMES = FALSE), na.rm = TRUE)
+      if(n_bootstrap == 0L) {
+        stop("bootstrapping did not produce any results.")
+      }
       phi_bootstrap <- data.table::rbindlist(lapply(phi_bootstrap, `[[`, "phi_bootstrap_draw"))
 
       # calculate standard errors
@@ -426,6 +441,8 @@ synthReturn <- function(
       )
     }
   }
+
+  message("passed bootstrap")
 
   # record the call
   call.param <- match.call()
