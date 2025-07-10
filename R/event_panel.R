@@ -22,19 +22,10 @@
 #'  \item{r}{Stock return.}
 #'
 
-event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+event_panel <- function(dt_treat, r_control, estwind, eventwind) {
 
   # dt_treat: data table; columns: d, r; sorted by d; single unit_id
   # dt_control: list of ed-specific data tables; columns: unit_id, d, r; sorted by unit_id, d; list elements are named according to ed value
-
-  # get set of all "potential" control companies for event date
-  if(is.null(treat_ed)) {
-    # phi_comp_placebo case
-    r_control <- dt_control
-  } else {
-    # phi_comp case
-    r_control <- dt_control[[treat_ed]]
-  }
 
   ndt_treat <- nrow(dt_treat)
 
@@ -50,9 +41,9 @@ event_panel <- function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
   }
 
   # filter control corp set
-  r_control <- r_control[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r", "tau"), nomatch = NULL, on = "d"]
+  r_control <- r_control[cids, nomatch = NULL, on = "unit_id"][dt_treat[, "d"], c("unit_id", "r"), nomatch = NULL, on = "d"]
   rm(cids)
-  # dt_treat[, d := NULL]
+  r_control[, tau := rep_len(dt_treat[["tau"]], nrow(r_control))]
   data.table::setorder(r_control, unit_id)
 
   ARs <- ar_comp(dt_treat, r_control, estwind, eventwind)

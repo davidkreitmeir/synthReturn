@@ -311,6 +311,7 @@ pre_process_synthReturn <- function(
 
   # reshape control returns
   eds <- unique(r_treat_ed[, "ed"])[["ed"]]
+  not_permutation <- inference != "permutation"
   if(ncores == 1L) {
     r_control <- lapply(
       eds,
@@ -319,7 +320,8 @@ pre_process_synthReturn <- function(
       estwind = estwind,
       eventwind = eventwind,
       estobs_min = estobs_min,
-      eventobs_min = eventobs_min
+      eventobs_min = eventobs_min,
+      not_permutation = not_permutation
     )
   } else {
     if(is_windows) {
@@ -331,7 +333,8 @@ pre_process_synthReturn <- function(
           estwind = estwind,
           eventwind = eventwind,
           estobs_min = estobs_min,
-          eventobs_min = eventobs_min
+          eventobs_min = eventobs_min,
+          not_permutation = not_permutation
         ),
         .compute = "synthReturn"
       )[]
@@ -344,6 +347,7 @@ pre_process_synthReturn <- function(
         eventwind = eventwind,
         estobs_min = estobs_min,
         eventobs_min = eventobs_min,
+        not_permutation = not_permutation,
         mc.cores = ncores,
         mc.preschedule = static_scheduling
       )

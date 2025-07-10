@@ -22,7 +22,7 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
   placebo_treat_ids <- data.table::data.table(unit_id = placebo_treat_ids, new_unit_id = 1:length(placebo_treat_ids))
 
   # get returns of placebo treatment firms
-  r_treat_placebo <- r_control_ed[placebo_treat_ids, c("new_unit_id", "d", "r", "tau"), nomatch = NULL, on = "unit_id"]
+  r_treat_placebo <- placebo_treat_ids[r_control_ed, c("new_unit_id", "d", "r", "tau"), nomatch = NULL, on = "unit_id"]
 
   # split by placebo treated firm
   r_treat_placebo <- split(r_treat_placebo, by = "new_unit_id", keep.by = FALSE)
@@ -38,7 +38,6 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
     lapply(
       r_treat_placebo,
       event_panel,
-      treat_ed = NULL,
       dt_control = r_control_placebo,
       estwind = estwind,
       eventwind = eventwind

@@ -23,7 +23,9 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
     # compute abnormal returns (ARs) for each placebo treatment group firm
     ARs <- data.table::rbindlist(
       mapply(
-        event_panel,
+        function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+          event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
+        },
         dt_treat = r_treat,
         treat_ed = r_treat_ed,
         MoreArgs = list(
@@ -41,7 +43,9 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
       ARs <- data.table::rbindlist(
         parallel::clusterMap(
           cl,
-          event_panel,
+          function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+            event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
+          },
           dt_treat = r_treat,
           treat_ed = r_treat_ed,
           MoreArgs = list(
@@ -57,7 +61,9 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
     } else {
       ARs <- data.table::rbindlist(
         parallel::mcmapply(
-          event_panel,
+          function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+            event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
+          },
           dt_treat = r_treat,
           treat_ed = r_treat_ed,
           MoreArgs = list(

@@ -4,7 +4,15 @@
 \alias{get_control_set}
 \title{Function that pre-processes returns of the control group}
 \usage{
-get_control_set(eventdate, cdata, estwind, eventwind, estobs_min, eventobs_min)
+get_control_set(
+  eventdate,
+  cdata,
+  estwind,
+  eventwind,
+  estobs_min,
+  eventobs_min,
+  not_permutation
+)
 }
 \arguments{
 \item{eventdate}{date of event.}

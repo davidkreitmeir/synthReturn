@@ -5,11 +5,11 @@ phi_comp_bootstrap <- function(r_treat, r_control, estwind, eventwind, sigma_cut
   r_control_units <- unique(r_control[, "unit_id"])[["unit_id"]]
   n_control <- length(r_control_units)
   r_control_units <- data.table::data.table(unit_id = sample(r_control_units, n_control, TRUE), new_unit_id = 1:n_control, key = "unit_id")
-  r_control <- r_control[r_control_units, c("new_unit_id", "d", "r", "tau"), nomatch = NULL, on = "unit_id"]
+  r_control <- r_control_units[r_control, c("new_unit_id", "d", "r"), nomatch = NULL, on = "unit_id"]
   data.table::setnames(r_control, "new_unit_id", "unit_id")
 
   # compute ARs with treatment and control sample for specific event date
-  ARs <- event_panel(r_treat, NULL, r_control, estwind, eventwind)
+  ARs <- event_panel(r_treat, r_control, estwind, eventwind)
   if(is.null(ARs)) {
     return(NULL)
   }

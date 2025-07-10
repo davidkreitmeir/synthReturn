@@ -4,7 +4,7 @@
 \alias{event_panel}
 \title{Function that pre-processes returns of the control group}
 \usage{
-event_panel(dt_treat, treat_ed, dt_control, estwind, eventwind)
+event_panel(dt_treat, r_control, estwind, eventwind)
 }
 \arguments{
 \item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}}
