@@ -176,8 +176,6 @@ synthReturn <- function(
     is_windows = is_windows
   )
 
-  message("passed preprocess")
-
   if(is_windows && ncores != 1L && inference != "permutation") {
     mirai::daemons(0L, .compute = "synthReturn")
     on.exit()
@@ -201,8 +199,6 @@ synthReturn <- function(
     static_scheduling = static_scheduling,
     is_windows = is_windows
   )
-
-  message("passed phi comp")
 
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
@@ -339,7 +335,6 @@ synthReturn <- function(
         cl <- mirai::make_cluster(ncores)
       }
       phi_bootstrap <- lapply(1:ndraws, function(draw) {
-        timer_draw <- proc.time()[3L]
         # sample treatment units
         treat_sample <- sample.int(n_treat, n_treat, TRUE)
         r_treat_sample <- dp[["r_treat"]][treat_sample]
@@ -404,7 +399,6 @@ synthReturn <- function(
         phi_bootstrap_draw <- data.table::rbindlist(phi_bootstrap_draw)
         # compute phi - equ. (7)
         phi_bootstrap_draw <- phi_bootstrap_draw[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-        print(paste0(draw, " : ", proc.time()[3L] - timer_draw))
         return(list(n_results_bootstrap_draw = n_results_bootstrap_draw, phi_bootstrap_draw = phi_bootstrap_draw))
       })
       rm(dp)
