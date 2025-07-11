@@ -255,6 +255,7 @@ pre_process_synthReturn <- function(
   r_treat_ed <- r_treat[, .(ed = ed[1L]), by = "unit_id"][, "ed"]
   r_treat[, ed := NULL]
   r_treat <- split(r_treat, by = "unit_id", keep.by = FALSE)
+  n_treat_pre <- length(r_treat)
   if(ncores == 1L) {
     r_treat <- mapply(
       get_treat_set,
@@ -358,7 +359,8 @@ pre_process_synthReturn <- function(
   out <- list(
     r_treat = r_treat,
     r_control = r_control,
-    r_treat_ed = as.character(r_treat_ed[["ed"]])
+    r_treat_ed = as.character(r_treat_ed[["ed"]]),
+    n_treat_pre = n_treat_pre
   )
 
   return(out)

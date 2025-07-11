@@ -176,14 +176,18 @@ synthReturn <- function(
     is_windows = is_windows
   )
 
+  # dp[["r_treat"]]: list of unit-specific data tables; columns: d, r, tau; sorted by d; list elements are not named
+  # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r, tau; sorted by unit_id, d; list elements are named according to ed value
+  # dp[["r_treat_ed"]]: character vector of treat units' event dates; same order is r_treat list elements
+  # dp[["n_treat_pre"]]: number of treatment units with finite values in all relevant variables
+
+  out <- list(n_treat_pre = dp[["n_treat_pre"]])
+  dp[["n_treat_pre"]] <- NULL
+
   if(is_windows && ncores != 1L && inference != "permutation") {
     mirai::daemons(0L, .compute = "synthReturn")
     on.exit()
   }
-
-  # dp[["r_treat"]]: list of unit-specific data tables; columns: d, r, tau; sorted by d; list elements are not named
-  # dp[["r_control"]]: list of ed-specific data tables; columns: unit_id, d, r, tau; sorted by unit_id, d; list elements are named according to ed value
-  # dp[["r_treat_ed"]]: character vector of treat units' event dates; same order is r_treat list elements
 
   #-----------------------------------------------------------------------------
   # Implement the methods
@@ -199,13 +203,15 @@ synthReturn <- function(
     static_scheduling = static_scheduling,
     is_windows = is_windows
   )
+  out[["n_treat_res"]] <- res[["n_treat_res"]]
 
   #-----------------------------------------------------------------------------
   # Create confidence intervals from average treatment effects of placebo treatment group
 
   if(inference == "none") {
     # return all information of interest (no CIs)
-    out <- list(ate = res[["phi"]], ar = res[["ar"]])
+    out[["ate"]] <- res[["phi"]]
+    out[["ar"]] <- res[["ar"]]
 
   } else {
 
@@ -321,12 +327,10 @@ synthReturn <- function(
       phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
       # return all information of interest
-      out <- list(
-        ate = res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"],
-        ar = res[["ar"]],
-        ate_placebo = phi_placebo,
-        n_placebo = n_placebo
-      )
+      out[["ate"]] <- res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"]
+      out[["ar"]] <- res[["ar"]]
+      out[["ate_placebo"]] <- phi_placebo
+      out[["n_placebo"]] <- n_placebo
 
     } else if(inference == "bootstrap") {
       is_single_core <- ncores == 1L
@@ -427,16 +431,12 @@ synthReturn <- function(
       se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - se_phi * stats::qnorm(0.995), phi + se_phi * stats::qnorm(0.995))]
 
       # return all information of interest
-      out <- list(
-        ate = se_phi_bootstrap[],
-        ar = res[["ar"]],
-        ate_bootstrap = phi_bootstrap,
-        n_bootstrap = n_bootstrap
-      )
+      out[["ate"]] <- se_phi_bootstrap[]
+      out[["ar"]] <- res[["ar"]]
+      out[["ate_bootstrap"]] <- phi_bootstrap
+      out[["n_bootstrap"]] <- n_bootstrap
     }
   }
-
-  message("passed bootstrap")
 
   # record the call
   call.param <- match.call()

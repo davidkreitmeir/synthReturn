@@ -21,8 +21,41 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
   if(ncores == 1L) {
     # obtain event panel for each treatment group
     # compute abnormal returns (ARs) for each placebo treatment group firm
-    ARs <- data.table::rbindlist(
-      mapply(
+    ARs <- mapply(
+      function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+        event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
+      },
+      dt_treat = r_treat,
+      treat_ed = r_treat_ed,
+      MoreArgs = list(
+        dt_control = r_control,
+        estwind = estwind,
+        eventwind = eventwind
+      ),
+      SIMPLIFY = FALSE,
+      USE.NAMES = FALSE
+    )
+  } else {
+    if(is_windows) {
+      cl <- mirai::make_cluster(ncores)
+      ARs <- parallel::clusterMap(
+        cl,
+        function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
+          event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
+        },
+        dt_treat = r_treat,
+        treat_ed = r_treat_ed,
+        MoreArgs = list(
+          dt_control = r_control,
+          estwind = estwind,
+          eventwind = eventwind
+        ),
+        USE.NAMES = FALSE,
+        .scheduling = data.table::fifelse(static_scheduling, "static", "dynamic")
+      )
+      mirai::stop_cluster(cl)
+    } else {
+      ARs <- parallel::mcmapply(
         function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
           event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
         },
@@ -34,59 +67,25 @@ phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores,
           eventwind = eventwind
         ),
         SIMPLIFY = FALSE,
-        USE.NAMES = FALSE
-      )
-    )
-  } else {
-    if(is_windows) {
-      cl <- mirai::make_cluster(ncores)
-      ARs <- data.table::rbindlist(
-        parallel::clusterMap(
-          cl,
-          function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
-            event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
-          },
-          dt_treat = r_treat,
-          treat_ed = r_treat_ed,
-          MoreArgs = list(
-            dt_control = r_control,
-            estwind = estwind,
-            eventwind = eventwind
-          ),
-          USE.NAMES = FALSE,
-          .scheduling = data.table::fifelse(static_scheduling, "static", "dynamic")
-        )
-      )
-      mirai::stop_cluster(cl)
-    } else {
-      ARs <- data.table::rbindlist(
-        parallel::mcmapply(
-          function(dt_treat, treat_ed, dt_control, estwind, eventwind) {
-            event_panel(dt_treat, dt_control[[treat_ed]], estwind, eventwind)
-          },
-          dt_treat = r_treat,
-          treat_ed = r_treat_ed,
-          MoreArgs = list(
-            dt_control = r_control,
-            estwind = estwind,
-            eventwind = eventwind
-          ),
-          SIMPLIFY = FALSE,
-          USE.NAMES = FALSE,
-          mc.cores = ncores,
-          mc.preschedule = static_scheduling
-        )
+        USE.NAMES = FALSE,
+        mc.cores = ncores,
+        mc.preschedule = static_scheduling
       )
     }
   }
+  # get number of treatment units with synthetic matches
+  n_treat_res <- sum(!vapply(ARs, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
 
-  if(nrow(ARs) == 0L) {
+  if(n_treat_res == 0L) {
     stop("phi could not be computed. Make sure that (i) there are control units observed on all observed days of treatment units and (ii) their returns ",
       "vary over time.")
   }
+
+  ARs <- data.table::rbindlist(ARs)
+
   # compute phi - equ. (7)
   phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-  out <- list(phi = phi, ar = ARs)
+  out <- list(phi = phi, ar = ARs, n_treat_res = n_treat_res)
 
   return(out)
 }

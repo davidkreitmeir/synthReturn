@@ -38,7 +38,7 @@ phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind
     lapply(
       r_treat_placebo,
       event_panel,
-      dt_control = r_control_placebo,
+      r_control = r_control_placebo,
       estwind = estwind,
       eventwind = eventwind
     )
