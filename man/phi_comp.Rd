@@ -12,7 +12,8 @@ phi_comp(
   eventwind,
   ncores,
   static_scheduling,
-  is_windows
+  is_windows,
+  inference
 )
 }
 \arguments{

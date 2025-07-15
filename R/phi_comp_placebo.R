@@ -14,35 +14,25 @@
 #'  \item{phi}{(Placebo) treatment effect.}
 #'
 
-phi_comp_placebo <- function(placebo_treat_ids, r_control_ed, estwind, eventwind, sigma_cutoff) {
+phi_comp_placebo <- function(placebo_treat_id, r_control_ed, estwind, eventwind, sigma_cutoff) {
 
-  # p_treat: vector of placebo treatment group unit ids
-
-  # assign new unit ids because placebo group was drawn with replacement, and multiple instances of the same unit must be considered separate
-  placebo_treat_ids <- data.table::data.table(unit_id = placebo_treat_ids, new_unit_id = 1:length(placebo_treat_ids))
+  # placebo_treat_id: placebo treatment unit id
 
   # get returns of placebo treatment firms
-  r_treat_placebo <- placebo_treat_ids[r_control_ed, c("new_unit_id", "d", "r", "tau"), nomatch = NULL, on = "unit_id"]
+  r_treat_placebo <- r_control_ed[.(placebo_treat_id), c("d", "r", "tau"), nomatch = NULL, on = "unit_id"]
 
-  # split by placebo treated firm
-  r_treat_placebo <- split(r_treat_placebo, by = "new_unit_id", keep.by = FALSE)
+  # drop placebo treated unit from control group
+  r_control_placebo <- r_control_ed[!.(placebo_treat_id), on = "unit_id"]
 
-  placebo_treat_ids[, new_unit_id := NULL]
-
-  # drop placebo treated companies from control group
-  r_control_placebo <- r_control_ed[!placebo_treat_ids, on = "unit_id"]
+  # return directly if no control unit left
+  if(nrow(r_control_placebo) == 0L) {
+    return(NULL)
+  }
 
   # obtain event panel for each treatment group
   # compute abnormal returns (ARs) for each placebo treatment group firm
-  ARs <- data.table::rbindlist(
-    lapply(
-      r_treat_placebo,
-      event_panel,
-      r_control = r_control_placebo,
-      estwind = estwind,
-      eventwind = eventwind
-    )
-  )
+  ARs <- event_panel(r_treat_placebo, r_control_placebo, estwind, eventwind)
+
   if(is.null(ARs)) {
     return(NULL)
   }

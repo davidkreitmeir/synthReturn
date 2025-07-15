@@ -5,7 +5,7 @@
 \title{Function that computes treatment effect for placebo treatment group.}
 \usage{
 phi_comp_placebo(
-  placebo_treat_ids,
+  placebo_treat_id,
   r_control_ed,
   estwind,
   eventwind,
