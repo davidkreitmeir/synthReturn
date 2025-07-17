@@ -22,12 +22,11 @@
 #' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param inference Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is `"none"`.
-#' @param correction Logical defining if "corrected" synthetic matching results are used for inference. Can only be used in combination with `inference = "permutation"`
-#' If `TRUE` firms that do not have a good synthetic match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average
-#' \eqn{\hat{\sigma}} of the treated firms. Default is `FALSE`.
+#' @param correction Logical defining if "corrected" synthetic matching results are used for inference. If `TRUE` firms that do not have a good synthetic
+#' match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average \eqn{\hat{\sigma}} of the treated firms.
+#' Default is `FALSE`.
 #' @param ndraws Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.
-#' @param ngroup Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
-#' Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.
+#' @param ncontrol_min Minimum number of control firms required to create synthetic match. Default is \eqn{10}.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
 #' @param static_scheduling Logical setting the parallel scheduling type. `TRUE` (default) implies static scheduling, `FALSE` dynamic scheduling. This
 #' parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no effect when `ncores = 1` and in
