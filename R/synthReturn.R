@@ -242,7 +242,7 @@ synthReturn <- function(
               r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
               # restrict set of placebo event dates to those with at least two control companies
               if(length(r_control_ed_units) == 1L) {
-                return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
+                return(NULL)
               }
               placebo_treat_id <- sample(r_control_ed_units, 1L) # control unit ids chosen as placebo treatment group
               ars <- phi_comp_placebo(placebo_treat_id = placebo_treat_id, r_control_ed = r_control_ed, estwind = estwind, eventwind = eventwind,
@@ -258,7 +258,7 @@ synthReturn <- function(
                 r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
                 # restrict set of placebo event dates to those with at least two control companies
                 if(length(r_control_ed_units) == 1L) {
-                  return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
+                  return(NULL)
                 }
                 placebo_treat_id <- sample(r_control_ed_units, 1L) # control unit ids chosen as placebo treatment group
                 ars <- phi_comp_placebo(placebo_treat_id = placebo_treat_id, r_control_ed = r_control_ed, estwind = estwind, eventwind = eventwind,
@@ -279,7 +279,7 @@ synthReturn <- function(
                 r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
                 # restrict set of placebo event dates to those with at least two control companies
                 if(length(r_control_ed_units) == 1L) {
-                  return(list(n_results_placebo_ed = 0L, phi_placebo_ed = NULL))
+                  return(NULL)
                 }
                 placebo_treat_id <- sample(r_control_ed_units, 1L) # control unit ids chosen as placebo treatment group
                 ars <- phi_comp_placebo(placebo_treat_id = placebo_treat_id, r_control_ed = r_control_ed, estwind = estwind, eventwind = eventwind,
