@@ -297,7 +297,7 @@ synthReturn <- function(
         }
         n_results_placebo_draw <- sum(!vapply(draw_phi, is.null, logical(1L), USE.NAMES = FALSE), na.rm = TRUE)
         if(n_results_placebo_draw == 0L) {
-          return(list(n_results_placebo_draw = 0L, phi_placebo_ed = NULL))
+          return(list(n_results_placebo_draw = 0L, phi_placebo_draw = NULL))
         }
         draw_phi <- data.table::rbindlist(draw_phi)
         # compute phi - equ. (7)
