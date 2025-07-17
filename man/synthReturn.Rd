@@ -17,7 +17,7 @@ synthReturn(
   eventobs_min = 1,
   inference = c("none", "permutation", "bootstrap"),
   correction = FALSE,
-  ngroup = 2,
+  ncontrol_min = 10,
   ndraws = 25,
   ncores = NULL,
   static_scheduling = TRUE
@@ -53,9 +53,6 @@ integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no miss
 If \code{TRUE} firms that do not have a good synthetic match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average
 \eqn{\hat{\sigma}} of the treated firms. Default is \code{FALSE}.}
 
-\item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
-Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
-
 \item{ndraws}{Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.}
 
 \item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
@@ -63,6 +60,9 @@ Default is \eqn{2}, i.e. placebo control group size has to be at least as large 
 \item{static_scheduling}{Logical setting the parallel scheduling type. \code{TRUE} (default) implies static scheduling, \code{FALSE} dynamic scheduling. This
 parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no effect when \code{ncores = 1} and in
 placebo estimations on Windows machines.}
+
+\item{ngroup}{Minimum number of control firms in placebo event(-date) panel relative to placebo treatment group size.
+Default is \eqn{2}, i.e. placebo control group size has to be at least as large as size of placebo treatment group.}
 }
 \value{
 An S3 object containing the following components:

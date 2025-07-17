@@ -33,8 +33,7 @@ event_panel <- function(dt_treat, r_control, estwind, eventwind) {
   # (1) No missing trading days on days treated corporation is traded
   cids <- r_control[dt_treat[, "d"], "unit_id", nomatch = NULL, on = "d"][, .(tdays = .N), by = "unit_id"][tdays == ndt_treat, "unit_id"]
   # (2) price changes need to be observed during sample period
-  cids <- r_control[cids, c("unit_id", "r"), nomatch = NULL, on = "unit_id"][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][
-    r_var > 0, "unit_id"]
+  cids <- r_control[cids, c("unit_id", "r"), nomatch = NULL, on = "unit_id"][, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][r_var > 0, "unit_id"]
 
   if(nrow(cids) == 0L) {
     return(NULL)

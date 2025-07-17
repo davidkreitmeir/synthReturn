@@ -28,6 +28,7 @@ get_control_set <- function(
   eventwind,
   estobs_min,
   eventobs_min,
+  ncontrol_min,
   not_permutation
 ) {
 
@@ -49,6 +50,9 @@ get_control_set <- function(
   out <- out[keep_units, nomatch = NULL, on = "unit_id"]
   # subset to units with return variance during entire sample period
   keep_units <- out[, .(r_var = stats::var(r, na.rm = TRUE)), by = "unit_id"][r_var > 0, "unit_id"]
+  if(nrow(keep_units) < ncontrol_min) {
+    return(NULL)
+  }
   out <- out[keep_units, nomatch = NULL, on = "unit_id"]
 
   return(out)

@@ -17,7 +17,7 @@ pre_process_synthReturn <- function(
   eventobs_min,
   inference,
   correction,
-  ngroup,
+  ncontrol_min,
   ndraws,
   ncores,
   static_scheduling,
@@ -155,12 +155,14 @@ pre_process_synthReturn <- function(
     if(ndraws < 1L || as.integer(ndraws) != ndraws){
       stop("The value of ndraws has to be an integer (>=) 1. Please convert it.")
     }
-    if(length(ngroup) != 1L || !is.numeric(ngroup) || !is.finite(ngroup)) {
-      stop("ngroup must be numeric and of length one.")
-    }
-    if(ngroup <= 1L) {
-      stop("The value of ngroup has to be larger than 1. Please convert it.")
-    }
+  }
+
+  # Check control group size minimum
+  if(length(ncontrol_min) != 1L || !is.numeric(ncontrol_min) || !is.finite(ncontrol_min)) {
+    stop("ncontrol_min must be numeric and of length one.")
+  }
+  if(ncontrol_min <= 1L) {
+    stop("The value of ncontrol_min has to be larger than 1. Please convert it.")
   }
 
   # if minimum trading days during estimation window in percent, convert to next (smallest) integer
@@ -306,12 +308,20 @@ pre_process_synthReturn <- function(
       )
     }
   }
-  r_treat_not_null <- !vapply(r_treat, is.null, logical(1L), USE.NAMES = FALSE)
-  r_treat <- r_treat[r_treat_not_null]
-  r_treat_ed <- r_treat_ed[r_treat_not_null,] # selected treatment units' event dates
+  r_treat_null <- vapply(r_treat, is.null, logical(1L), USE.NAMES = FALSE)
+  if(any(r_treat_null)) {
+    if(all(r_treat_null)) {
+      stop("No treatment unit has both sufficient observations in estimation or event windows and variance in returns.")
+    }
+    warning("Dropping ", sum(r_treat_null, na.rm = TRUE), " treatment units because of insufficient observations in estimation or event windows or because",
+      " of no variance in returns.")
+    r_treat_null <- !r_treat_null
+    r_treat <- r_treat[r_treat_null]
+    r_treat_ed <- r_treat_ed[r_treat_null,] # selected treatment units' event dates
+  }
 
   # reshape control returns
-  eds <- unique(r_treat_ed[, "ed"])[["ed"]]
+  eds <- unique(r_treat_ed)[["ed"]]
   not_permutation <- inference != "permutation"
   if(ncores == 1L) {
     r_control <- lapply(
@@ -322,6 +332,7 @@ pre_process_synthReturn <- function(
       eventwind = eventwind,
       estobs_min = estobs_min,
       eventobs_min = eventobs_min,
+      ncontrol_min = ncontrol_min,
       not_permutation = not_permutation
     )
   } else {
@@ -335,6 +346,7 @@ pre_process_synthReturn <- function(
           eventwind = eventwind,
           estobs_min = estobs_min,
           eventobs_min = eventobs_min,
+          ncontrol_min = ncontrol_min,
           not_permutation = not_permutation
         ),
         .compute = "synthReturn"
@@ -348,11 +360,25 @@ pre_process_synthReturn <- function(
         eventwind = eventwind,
         estobs_min = estobs_min,
         eventobs_min = eventobs_min,
+        ncontrol_min = ncontrol_min,
         not_permutation = not_permutation,
         mc.cores = ncores,
         mc.preschedule = static_scheduling
       )
     }
+  }
+  r_control_null <- vapply(r_control, is.null, logical(1L), USE.NAMES = FALSE)
+  if(any(r_control_null)) {
+    if(all(r_control_null)) {
+      stop("No event date has sufficient control units, according to ncontrol_min.")
+    }
+    warning("Dropping ", sum(r_control_null, na.rm = TRUE), " event dates because of too few control units, according to ncontrol_min.")
+    r_control_null <- !r_control_null
+    r_control <- r_control[!r_control_null]
+    eds <- eds[r_control_null]
+    keep_eds <- r_treat_ed[.(eds), which = TRUE, on = "ed"]
+    r_treat <- r_treat[keep_eds]
+    r_treat_ed <- r_treat_ed[keep_eds,]
   }
   names(r_control) <- as.character(eds)
 

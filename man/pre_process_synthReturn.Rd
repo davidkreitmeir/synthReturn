@@ -17,7 +17,7 @@ pre_process_synthReturn(
   eventobs_min,
   inference,
   correction,
-  ngroup,
+  ncontrol_min,
   ndraws,
   ncores,
   static_scheduling,

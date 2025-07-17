@@ -11,6 +11,7 @@ get_control_set(
   eventwind,
   estobs_min,
   eventobs_min,
+  ncontrol_min,
   not_permutation
 )
 }

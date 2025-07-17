@@ -43,7 +43,5 @@ phi_comp_placebo <- function(placebo_treat_id, r_control_ed, estwind, eventwind,
     ARs <- ARs[sigma <= sigma_cutoff,]
   }
 
-  # compute phi - equ. (7)
-  phi <- ARs[, .(phi = sum(car_wgted) / sum(one_div_sigma)), by = "tau"]
-  return(phi)
+  return(ARs)
 }
