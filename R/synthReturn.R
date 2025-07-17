@@ -254,7 +254,7 @@ synthReturn <- function(
           if(is_windows) {
             draw_phi <- mirai::mirai_map(
               dp,
-              function(r_control_ed) {
+              function(r_control_ed, estwind, eventwind, sigma_cutoff) {
                 r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
                 # restrict set of placebo event dates to those with at least two control companies
                 if(length(r_control_ed_units) == 1L) {
@@ -275,7 +275,7 @@ synthReturn <- function(
           } else {
             draw_phi <- parallel::mclapply(
               dp,
-              function(r_control_ed) {
+              function(r_control_ed, estwind, eventwind, sigma_cutoff) {
                 r_control_ed_units <- unique(r_control_ed[, "unit_id"])[["unit_id"]]
                 # restrict set of placebo event dates to those with at least two control companies
                 if(length(r_control_ed_units) == 1L) {

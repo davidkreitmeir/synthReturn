@@ -70,7 +70,7 @@ pre_process_synthReturn <- function(
     stop("estwind[1] must not be larger than estwind[2]")
   }
   if(estwind[2L] >= 0L) {
-    warning("estwind incorporates time periods >= 0. Thus, it does not exclusively select control units based on pre-treatment time periods. This is ",
+    message("estwind incorporates time periods >= 0. Thus, it does not exclusively select control units based on pre-treatment time periods. This is ",
       "technically allowed, but usually not intended.")
   }
 
@@ -86,7 +86,7 @@ pre_process_synthReturn <- function(
   }
 
   if(estwind[2L] >= eventwind[1L]) {
-    warning("The estwind interval does not strictly preceed the eventwind interval. Usually, you want the estimation window to refer only to time periods ",
+    message("The estwind interval does not strictly preceed the eventwind interval. Usually, you want the estimation window to refer only to time periods ",
       "before the event window.")
   }
 
@@ -182,7 +182,7 @@ pre_process_synthReturn <- function(
   # Check inference correction choice
   if(inference == "none"){
     if(correction){
-      warning("correction only available for permutation and bootstrapping inference.")
+      message("correction only available for permutation and bootstrapping inference.")
     }
   } else {
     if(length(correction) != 1L || !is.logical(correction) || is.na(correction)) {
@@ -199,7 +199,7 @@ pre_process_synthReturn <- function(
   if(anyNA(DT[[treatname]])) {
     nr_DT_pre <- nrow(DT)
     DT <- na.omit(DT, cols = treatname)
-    warning("Dropping ", nr_DT_pre - nrow(DT), " rows because of NA values in ", treatname, ".")
+    message("Dropping ", nr_DT_pre - nrow(DT), " rows because of NA values in ", treatname, ".")
   }
 
   # convert data into 2 DTs: r_treat & r_control
@@ -229,7 +229,7 @@ pre_process_synthReturn <- function(
     if(nr_DT == 0L) {
       stop("The treatment group does not have any rows with exclusively finite values.")
     }
-    warning("Dropping ", nr_DT_pre - nr_DT, " treatment group rows because of non-finite values.")
+    message("Dropping ", nr_DT_pre - nr_DT, " treatment group rows because of non-finite values.")
   }
   nr_DT_pre <- nrow(r_control)
   r_control <- r_control[is.finite(r) & is.finite(d) & is.finite(unit_id),]
@@ -238,7 +238,7 @@ pre_process_synthReturn <- function(
     if(nr_DT == 0L) {
       stop("The control group does not have any rows with exclusively finite values.")
     }
-    warning("Dropping ", nr_DT_pre - nr_DT, " control group rows because of non-finite values.")
+    message("Dropping ", nr_DT_pre - nr_DT, " control group rows because of non-finite values.")
   }
 
   # sort data with respect to id and time
@@ -313,7 +313,7 @@ pre_process_synthReturn <- function(
     if(all(r_treat_null)) {
       stop("No treatment unit has both sufficient observations in estimation or event windows and variance in returns.")
     }
-    warning("Dropping ", sum(r_treat_null, na.rm = TRUE), " treatment units because of insufficient observations in estimation or event windows or because",
+    message("Dropping ", sum(r_treat_null, na.rm = TRUE), " treatment units because of insufficient observations in estimation or event windows or because",
       " of no variance in returns.")
     r_treat_null <- !r_treat_null
     r_treat <- r_treat[r_treat_null]
@@ -372,7 +372,7 @@ pre_process_synthReturn <- function(
     if(all(r_control_null)) {
       stop("No event date has sufficient control units, according to ncontrol_min.")
     }
-    warning("Dropping ", sum(r_control_null, na.rm = TRUE), " event dates because of too few control units, according to ncontrol_min.")
+    message("Dropping ", sum(r_control_null, na.rm = TRUE), " event dates because of too few control units, according to ncontrol_min.")
     r_control_null <- !r_control_null
     r_control <- r_control[!r_control_null]
     eds <- eds[r_control_null]
