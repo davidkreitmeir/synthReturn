@@ -50,12 +50,13 @@ integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no miss
 \item{inference}{Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is \code{"none"}.}
 
 \item{correction}{Logical defining if "corrected" synthetic matching results are used for inference. If \code{TRUE} firms that do not have a good synthetic
-match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average \eqn{\hat{\sigma}} of the treated firms.
+match, defined as firms in the control group with \eqn{\sigma} more than \eqn{\sqrt3} times the average \eqn{\sigma} of the treated firms.
 Default is \code{FALSE}.}
 
 \item{ncontrol_min}{Minimum number of control firms required to create synthetic match. Default is \eqn{10}.}
 
-\item{ndraws}{Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.}
+\item{ndraws}{Number of randomly drawn placebo treatment groups if \code{inference = "permutation"}. Number of nonparametric bootstrap repetitions if \code{inference = "bootstrap"}.
+Has to be larger than \eqn{1}. \code{ndraws} has no effect if \code{inference = "none"}}
 
 \item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
 
@@ -65,86 +66,90 @@ placebo estimations on Windows machines.}
 }
 \value{
 An S3 object containing the following components:
-\item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if \code{placebo == TRUE}) the 90\%, 95\% and 99\% confidence intervals.}
-\item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the
-(actual) treatment group.}
-\item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment
-groups.}
-\item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
+\item{n_treat_pre}{Number of treatment units in the data.}
+\item{n_treat_res}{Number of treatment units in the data that fulfill the minimum requirements and are used in the calculation of
+the average treatment effect \eqn{\phi}.}
+\item{ate}{Data.table containing the relative time period \eqn{\tau} and the average treatment effect estimates \eqn{\phi}. If the user selects
+\code{inference = "permutation"}, the data.table additionally reports the p-value and the 95\\% confidence interval. If the user selects
+\code{inference = "bootstrap"}, the data.table additionally reports the standard error, the p-value and the 95 percent confidence interval.}
+\item{ar}{Data.table reporting the estimated abnormal returns, the "goodness" of the synthetic match estimate \eqn{\sigma}, the weighted cumulative abnormal
+return and the corresponding weights for all treated firms.}
+\item{ate_bootstrap}{Data.table containing the average treatment effect estimates \eqn{\phi} for each bootstrap iteration. Returned
+if the user chooses \code{inference = "bootstrap"}.}
+\item{n_bootstrap}{Number of bootstrap iterations that returned a valid result.}
+\item{ate_placebo}{Data.table containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group draw. Returned
+if the user chooses \code{inference = "permutation"}.}
+\item{n_placebo}{Number of placebo draws that returned a valid result.}
+\item{arg}{List with arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ncontrol_min, ndraws).}
 }
 \description{
 \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
-matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
-accommodate multiple event dates and missing values.
+matching method suggested by Acemoglu et al. (2016) and revised by Kreitmeir et al. (2025).
 }
 \details{
 The data's \code{dname} and \code{edname} columns refer to dates. \code{dname} is the date that a row refers to. \code{edname} is the date when a unit was treated.
 I.e., \code{edname} is constant across all rows per unit. And it is ignored for never treated units.
 
 The package uses the term "term" for consistency with the literature. Internally, it does not care what interval a time period refers to. It evaluates
-units' sequences of distinct \code{Date} or numerical values in \code{dname} and \code{edname}, irrespective of whether the denote days, hours, etc.
+units' sequences of distinct \code{Date} or numerical values in \code{dname} and \code{edname}, irrespective of whether they denote days, hours, etc.
 
 \code{estwind} and \code{eventwind} describe sections in these sequences. 0 is the treatment time. Hence, \code{c(-1, -100)} is a unit's 100 observations before
 treatment. When \code{dname} and \code{edname} are in days and a specific unit is observed on 2 days per week, \code{c(-1, -100)} covers 50 weeks before treatment in
-the case of that unit. In the financial data, that would be a company's 100 trading days before treatment.
+the case of that unit. In the case of financial data, that would be a company's 100 trading days before treatment.
 }
 \examples{
-# -----------------------------------------------
-# Example with two event-dates and no missing values
-# -----------------------------------------------
 
 # Load data in that comes in the synthReturn package
 data(ret_two_evdates)
 
 # -----------------------------------------------
-# Implement the synthetic matching matching method
+# Example with Permutation Inference
+# -----------------------------------------------
 
-synthReturn(
+set.seed(123) # set random seed
+
+# Run synthReturn
+res.boot <- synthReturn(
   data = ret_two_evdates,
-  tidname = "treatid",
-  cidname = "controlid",
-  rname = "ret",
+  unitname = "unit",
+  treatname = "treat",
   dname = "date",
+  rname = "ret",
   edname = "eventdate",
   estwind = c(-100,-1),
   eventwind = c(0,5),
   estobs_min = 1,
   eventobs_min = 1,
-  placebo = TRUE,
-  ngroup = 2,
-  ndraws = 10
-)
-
-
-# -----------------------------------------------
-# Example with two event-dates and no missing values
-# -----------------------------------------------
-
-# Load data in that comes in the synthReturn package
-data(ret_two_evdates_na)
+  inference = "bootstrap",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = 1
+  )
 
 # -----------------------------------------------
-# Implement the synthetic matching matching method
+# Example with Nonparametric Bootstrap
+# -----------------------------------------------
 
-# Note: You can set a threshold for the minimum of non-missing trading days
-# during both the estimation (estobs_min) and event window (eventobs_min). Here, a firm
-# is required to have non-missing returns for at least 90\% of trading days during both,
-# the estimation and event window (Default is 1 = 100\%).
+set.seed(123) # set random seed
 
-synthReturn(
+# Run synthReturn
+res.placebo <- synthReturn(
   data = ret_two_evdates,
-  tidname = "treatid",
-  cidname = "controlid",
-  rname = "ret",
+  unitname = "unit",
+  treatname = "treat",
   dname = "date",
+  rname = "ret",
   edname = "eventdate",
   estwind = c(-100,-1),
   eventwind = c(0,5),
-  estobs_min = 0.9,
-  eventobs_min = 0.9,
-  placebo = TRUE,
-  ngroup = 2,
-  ndraws = 10
-)
+  estobs_min = 1,
+  eventobs_min = 1,
+  inference = "permutation",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = 1
+  )
 
 }

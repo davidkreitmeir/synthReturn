@@ -2,8 +2,7 @@
 #' Function that
 #'
 #' @description \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
-#'  matching method suggested by Acemoglu et al. (2016) and modified by Kreitmeir et al. (2023) to
-#'  accommodate multiple event dates and missing values.
+#'  matching method suggested by Acemoglu et al. (2016) and revised by Kreitmeir et al. (2025).
 #'
 #' @param data The name of the data frame that contains the data.
 #' @param unitname The name of the column containing IDs of treated and control units.
@@ -23,9 +22,10 @@
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param inference Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is `"none"`.
 #' @param correction Logical defining if "corrected" synthetic matching results are used for inference. If `TRUE` firms that do not have a good synthetic
-#' match, defined as firms in the control group with \eqn{\hat{\sigma}} more than \eqn{\sqrt{3}} times the average \eqn{\hat{\sigma}} of the treated firms.
+#' match, defined as firms in the control group with \eqn{\sigma} more than \eqn{\sqrt3} times the average \eqn{\sigma} of the treated firms.
 #' Default is `FALSE`.
-#' @param ndraws Number of randomly drawn placebo treatment groups at each (unique) event date. Has to be larger than \eqn{1}.
+#' @param ndraws Number of randomly drawn placebo treatment groups if `inference = "permutation"`. Number of nonparametric bootstrap repetitions if `inference = "bootstrap"`.
+#' Has to be larger than \eqn{1}. `ndraws` has no effect if `inference = "none"`
 #' @param ncontrol_min Minimum number of control firms required to create synthetic match. Default is \eqn{10}.
 #' @param ncores Number of CPU cores to use. `NULL` (the default) sets it to the number of available cores.
 #' @param static_scheduling Logical setting the parallel scheduling type. `TRUE` (default) implies static scheduling, `FALSE` dynamic scheduling. This
@@ -36,19 +36,28 @@
 #' I.e., `edname` is constant across all rows per unit. And it is ignored for never treated units.
 #'
 #' The package uses the term "term" for consistency with the literature. Internally, it does not care what interval a time period refers to. It evaluates
-#' units' sequences of distinct `Date` or numerical values in `dname` and `edname`, irrespective of whether the denote days, hours, etc.
+#' units' sequences of distinct `Date` or numerical values in `dname` and `edname`, irrespective of whether they denote days, hours, etc.
 #'
 #' `estwind` and `eventwind` describe sections in these sequences. 0 is the treatment time. Hence, `c(-1, -100)` is a unit's 100 observations before
 #' treatment. When `dname` and `edname` are in days and a specific unit is observed on 2 days per week, `c(-1, -100)` covers 50 weeks before treatment in
-#' the case of that unit. In the financial data, that would be a company's 100 trading days before treatment.
+#' the case of that unit. In the case of financial data, that would be a company's 100 trading days before treatment.
 #'
 #' @return An S3 object containing the following components:
-#' \item{ate}{Data.frame containing the average treatment effect estimates \eqn{\phi} and (if `placebo == TRUE`) the 90%, 95% and 99% confidence intervals.}
-#' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the
-#' (actual) treatment group.}
-#' \item{placebo}{List containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group and the number of placebo treatment
-#' groups.}
-#' \item{argu}{Some arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ngroup, ndraws).}
+#' \item{n_treat_pre}{Number of treatment units in the data.}
+#' \item{n_treat_res}{Number of treatment units in the data that fulfill the minimum requirements and are used in the calculation of
+#' the average treatment effect \eqn{\phi}.}
+#' \item{ate}{Data.table containing the relative time period \eqn{\tau} and the average treatment effect estimates \eqn{\phi}. If the user selects
+#' `inference = "permutation"`, the data.table additionally reports the p-value and the 95\% confidence interval. If the user selects
+#' `inference = "bootstrap"`, the data.table additionally reports the standard error, the p-value and the 95 percent confidence interval.}
+#' \item{ar}{Data.table reporting the estimated abnormal returns, the "goodness" of the synthetic match estimate \eqn{\sigma}, the weighted cumulative abnormal
+#' return and the corresponding weights for all treated firms.}
+#' \item{ate_bootstrap}{Data.table containing the average treatment effect estimates \eqn{\phi} for each bootstrap iteration. Returned
+#' if the user chooses `inference = "bootstrap"`.}
+#' \item{n_bootstrap}{Number of bootstrap iterations that returned a valid result.}
+#' \item{ate_placebo}{Data.table containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group draw. Returned
+#' if the user chooses `inference = "permutation"`.}
+#' \item{n_placebo}{Number of placebo draws that returned a valid result.}
+#' \item{arg}{List with arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ncontrol_min, ndraws).}
 #'
 #' @importFrom data.table .N
 #' @importFrom data.table .SD
@@ -58,64 +67,61 @@
 #' @importFrom data.table %between%
 #'
 #' @examples
-#' # -----------------------------------------------
-#' # Example with two event-dates and no missing values
-#' # -----------------------------------------------
 #'
 #' # Load data in that comes in the synthReturn package
 #' data(ret_two_evdates)
 #'
 #' # -----------------------------------------------
-#' # Implement the synthetic matching matching method
+#' # Example with Permutation Inference
+#' # -----------------------------------------------
 #'
-#' synthReturn(
+#' set.seed(123) # set random seed
+#'
+#' # Run synthReturn
+#' res.boot <- synthReturn(
 #'   data = ret_two_evdates,
-#'   tidname = "treatid",
-#'   cidname = "controlid",
-#'   rname = "ret",
+#'   unitname = "unit",
+#'   treatname = "treat",
 #'   dname = "date",
+#'   rname = "ret",
 #'   edname = "eventdate",
 #'   estwind = c(-100,-1),
 #'   eventwind = c(0,5),
 #'   estobs_min = 1,
 #'   eventobs_min = 1,
-#'   placebo = TRUE,
-#'   ngroup = 2,
-#'   ndraws = 10
-#' )
-#'
-#'
-#' # -----------------------------------------------
-#' # Example with two event-dates and no missing values
-#' # -----------------------------------------------
-#'
-#' # Load data in that comes in the synthReturn package
-#' data(ret_two_evdates_na)
+#'   inference = "bootstrap",
+#'   correction = FALSE,
+#'   ncontrol_min = 10,
+#'   ndraws = 100,
+#'   ncores = 1
+#'   )
 #'
 #' # -----------------------------------------------
-#' # Implement the synthetic matching matching method
+#' # Example with Nonparametric Bootstrap
+#' # -----------------------------------------------
 #'
-#' # Note: You can set a threshold for the minimum of non-missing trading days
-#' # during both the estimation (estobs_min) and event window (eventobs_min). Here, a firm
-#' # is required to have non-missing returns for at least 90% of trading days during both,
-#' # the estimation and event window (Default is 1 = 100%).
+#' set.seed(123) # set random seed
 #'
-#' synthReturn(
+#' # Run synthReturn
+#' res.placebo <- synthReturn(
 #'   data = ret_two_evdates,
-#'   tidname = "treatid",
-#'   cidname = "controlid",
-#'   rname = "ret",
+#'   unitname = "unit",
+#'   treatname = "treat",
 #'   dname = "date",
+#'   rname = "ret",
 #'   edname = "eventdate",
 #'   estwind = c(-100,-1),
 #'   eventwind = c(0,5),
-#'   estobs_min = 0.9,
-#'   eventobs_min = 0.9,
-#'   placebo = TRUE,
-#'   ngroup = 2,
-#'   ndraws = 10
-#' )
+#'   estobs_min = 1,
+#'   eventobs_min = 1,
+#'   inference = "permutation",
+#'   correction = FALSE,
+#'   ncontrol_min = 10,
+#'   ndraws = 100,
+#'   ncores = 1
+#'   )
 #'
+
 
 #' @export
 synthReturn <- function(
@@ -312,13 +318,22 @@ synthReturn <- function(
       }
       phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_draw"))
 
+      # calculate (two-sided) p-value
+      pval_placebo <- copy(res[["phi"]])
+      pval_placebo[, phi_act := phi]
+      pval_placebo <- pval_placebo[,c("tau", "phi_act")][phi_placebo, on = "tau"]
+      pval_placebo[, `:=` (pval_lt = fifelse(phi < -abs(phi_act), 1L, 0L), pval_ut = fifelse(phi > abs(phi_act), 1L, 0L))]
+      pval_placebo <- pval_placebo[, .(pval_lt = mean(pval_lt), pval_ut = mean(pval_ut)), by = "tau"]
+      pval_placebo[, pval := pval_lt + pval_ut]
+      pval_placebo[, `:=` (pval_lt = NULL, pval_ut = NULL)]
+
       # calculate CI intervals
-      phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
+      # phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
       phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
-      phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
+      # phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
       # return all information of interest
-      out[["ate"]] <- res[["phi"]][phi_CI90, on = "tau"][phi_CI95, on = "tau"][phi_CI99, on = "tau"]
+      out[["ate"]] <- res[["phi"]][pval_placebo, on = "tau"][phi_CI95, on = "tau"]
       out[["ar"]] <- res[["ar"]]
       out[["ate_placebo"]] <- phi_placebo
       out[["n_placebo"]] <- n_placebo
@@ -414,16 +429,19 @@ synthReturn <- function(
       phi_bootstrap <- data.table::rbindlist(lapply(phi_bootstrap, `[[`, "phi_bootstrap_draw"))
 
       # calculate standard errors
-      se_phi_bootstrap <- phi_bootstrap[, .(se_phi = stats::sd(phi, na.rm = TRUE)), by = "tau"]
+      se_phi_bootstrap <- phi_bootstrap[, .(stderr = stats::sd(phi, na.rm = TRUE)), by = "tau"]
 
       # merge baseline phi to bootstrap standard errors
       se_phi_bootstrap <- se_phi_bootstrap[res[["phi"]], on = "tau"]
-      data.table::setcolorder(se_phi_bootstrap, c("tau", "phi", "se_phi"))
+      data.table::setcolorder(se_phi_bootstrap, c("tau", "phi", "stderr"))
+
+      # calculate (two-sided) p-value (H0: phi = 0)
+      se_phi_bootstrap[, pval := (1-pnorm(abs(phi/stderr)))*2]
 
       # calculate CI intervals
-      se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - se_phi * stats::qnorm(0.95), phi + se_phi * stats::qnorm(0.95))]
-      se_phi_bootstrap[, c("ci_95_lower", "ci_95_upper") := list(phi - se_phi * stats::qnorm(0.975), phi + se_phi * stats::qnorm(0.975))]
-      se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - se_phi * stats::qnorm(0.995), phi + se_phi * stats::qnorm(0.995))]
+      # se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - stderr * stats::qnorm(0.95), phi + stderr * stats::qnorm(0.95))]
+      se_phi_bootstrap[, c("ci_95_lower", "ci_95_upper") := list(phi - stderr * stats::qnorm(0.975), phi + stderr * stats::qnorm(0.975))]
+      # se_phi_bootstrap[, c("ci_99_lower", "ci_99_upper") := list(phi - stderr * stats::qnorm(0.995), phi + stderr * stats::qnorm(0.995))]
 
       # return all information of interest
       out[["ate"]] <- se_phi_bootstrap[]
@@ -443,7 +461,7 @@ synthReturn <- function(
     eventwind = argu$eventwind,
     estobs_min = argu$estobs_min,
     eventobs_min = argu$eventobs_min,
-    ngroup = argu$ngroup,
+    ncontrol_min = argu$ncontrol_min,
     ndraws = argu$ndraws
   )
 
