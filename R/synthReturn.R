@@ -319,10 +319,10 @@ synthReturn <- function(
       phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_draw"))
 
       # calculate (two-sided) p-value
-      pval_placebo <- copy(res[["phi"]])
+      pval_placebo <- data.table::copy(res[["phi"]])
       pval_placebo[, phi_act := phi]
       pval_placebo <- pval_placebo[,c("tau", "phi_act")][phi_placebo, on = "tau"]
-      pval_placebo[, `:=` (pval_lt = fifelse(phi < -abs(phi_act), 1L, 0L), pval_ut = fifelse(phi > abs(phi_act), 1L, 0L))]
+      pval_placebo[, `:=` (pval_lt = data.table::fifelse(phi < -abs(phi_act), 1L, 0L), pval_ut = data.table::fifelse(phi > abs(phi_act), 1L, 0L))]
       pval_placebo <- pval_placebo[, .(pval_lt = mean(pval_lt), pval_ut = mean(pval_ut)), by = "tau"]
       pval_placebo[, pval := pval_lt + pval_ut]
       pval_placebo[, `:=` (pval_lt = NULL, pval_ut = NULL)]
@@ -456,14 +456,16 @@ synthReturn <- function(
   # Record all arguments used in the function
   argu <- mget(names(formals()), sys.frame(sys.nframe()))
 
-  out[["arg"]] <- list(
-    estwind = argu$estwind,
-    eventwind = argu$eventwind,
-    estobs_min = argu$estobs_min,
-    eventobs_min = argu$eventobs_min,
-    ncontrol_min = argu$ncontrol_min,
-    ndraws = argu$ndraws
-  )
+  # out[["arg"]] <- list(
+  #   estwind = argu$estwind,
+  #   eventwind = argu$eventwind,
+  #   estobs_min = argu$estobs_min,
+  #   eventobs_min = argu$eventobs_min,
+  #   ncontrol_min = argu$ncontrol_min,
+  #   ndraws = argu$ndraws
+  # )
+
+  out[["arg"]] <- match.call()
 
   # Define a new class
   class(out) <- "synthReturn"
