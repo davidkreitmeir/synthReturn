@@ -57,7 +57,7 @@
 #' \item{ate_placebo}{Data.table containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group draw. Returned
 #' if the user chooses `inference = "permutation"`.}
 #' \item{n_placebo}{Number of placebo draws that returned a valid result.}
-#' \item{arg}{List with arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ncontrol_min, ndraws).}
+#' \item{arg}{List with arguments used in the call.}
 #'
 #' @importFrom data.table .N
 #' @importFrom data.table .SD
@@ -452,20 +452,7 @@ synthReturn <- function(
   }
 
   # record the call
-  call.param <- match.call()
-  # Record all arguments used in the function
-  argu <- mget(names(formals()), sys.frame(sys.nframe()))
-
-  # out[["arg"]] <- list(
-  #   estwind = argu$estwind,
-  #   eventwind = argu$eventwind,
-  #   estobs_min = argu$estobs_min,
-  #   eventobs_min = argu$eventobs_min,
-  #   ncontrol_min = argu$ncontrol_min,
-  #   ndraws = argu$ndraws
-  # )
-
-  out[["arg"]] <- match.call()
+  out[["call"]] <- match.call()
 
   # Define a new class
   class(out) <- "synthReturn"
