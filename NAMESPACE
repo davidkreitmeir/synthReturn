@@ -7,3 +7,5 @@ importFrom(data.table,":=")
 importFrom(data.table,.GRP)
 importFrom(data.table,.N)
 importFrom(data.table,.SD)
+
+S3method(print, "synthReturn")
