@@ -3,14 +3,11 @@
 ##########
 ## a synthReturn object
 
-
+#' @exportS3Method synthReturn::print
 print.synthReturn <-  function(x,
                                ...) {
 
-  cat("Call:\n")
-  print(x[["arg"]], digits = 4)
-
-  if (x[["arg"]][["inference"]] == 'none') {
+  if (x[["call"]][["inference"]] == 'none') {
     cat("\nAverage Treatment Effect on the Treated:\n")
     print(
       round(as.data.frame(x[["ate"]]), digits = 4),

@@ -80,7 +80,7 @@ if the user chooses \code{inference = "bootstrap"}.}
 \item{ate_placebo}{Data.table containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group draw. Returned
 if the user chooses \code{inference = "permutation"}.}
 \item{n_placebo}{Number of placebo draws that returned a valid result.}
-\item{arg}{List with arguments used in the call (estwind, eventwind, estobs_min, eventobs_min, ncontrol_min, ndraws).}
+\item{arg}{List with arguments used in the call.}
 }
 \description{
 \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic

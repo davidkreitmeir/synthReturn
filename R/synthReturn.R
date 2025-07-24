@@ -317,19 +317,17 @@ synthReturn <- function(
         stop("permutation did not produce any results.")
       }
       phi_placebo <- data.table::rbindlist(lapply(phi_placebo, `[[`, "phi_placebo_draw"))
+      data.table::setnames(phi_placebo, "phi", "phi_permut")
 
       # calculate (two-sided) p-value
-      pval_placebo <- data.table::copy(res[["phi"]])
-      pval_placebo[, phi_act := phi]
-      pval_placebo <- pval_placebo[,c("tau", "phi_act")][phi_placebo, on = "tau"]
-      pval_placebo[, `:=` (pval_lt = data.table::fifelse(phi < -abs(phi_act), 1L, 0L), pval_ut = data.table::fifelse(phi > abs(phi_act), 1L, 0L))]
-      pval_placebo <- pval_placebo[, .(pval_lt = mean(pval_lt), pval_ut = mean(pval_ut)), by = "tau"]
-      pval_placebo[, pval := pval_lt + pval_ut]
-      pval_placebo[, `:=` (pval_lt = NULL, pval_ut = NULL)]
+      pval_placebo <- res[["phi"]][phi_placebo, c("tau", "phi", "phi_permut"), on = "tau"]
+      pval_placebo[, `:=` (pval_lt = as.integer(phi < -abs(phi)), pval_ut = as.integer(phi > abs(phi)))]
+      pval_placebo <- pval_placebo[, .(pval = mean(pval_lt, na.rm = TRUE) + mean(pval_ut, na.rm = TRUE)), by = "tau"]
 
       # calculate CI intervals
       # phi_CI90 <- phi_placebo[, .(ci_90_lower = stats::quantile(phi, probs = 0.05), ci_90_upper = stats::quantile(phi, probs = 0.95)), by = "tau"]
-      phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi, probs = 0.025), ci_95_upper = stats::quantile(phi, probs = 0.975)), by = "tau"]
+      phi_CI95 <- phi_placebo[, .(ci_95_lower = stats::quantile(phi_permut, probs = 0.025), ci_95_upper = stats::quantile(phi_permut, probs = 0.975)),
+        by = "tau"]
       # phi_CI99 <- phi_placebo[, .(ci_99_lower = stats::quantile(phi, probs = 0.005), ci_99_upper = stats::quantile(phi, probs = 0.995)), by = "tau"]
 
       # return all information of interest
@@ -436,7 +434,7 @@ synthReturn <- function(
       data.table::setcolorder(se_phi_bootstrap, c("tau", "phi", "stderr"))
 
       # calculate (two-sided) p-value (H0: phi = 0)
-      se_phi_bootstrap[, pval := (1-pnorm(abs(phi/stderr)))*2]
+      se_phi_bootstrap[, pval := (1 - stats::pnorm(abs(phi / stderr)))*2]
 
       # calculate CI intervals
       # se_phi_bootstrap[, c("ci_90_lower", "ci_90_upper") := list(phi - stderr * stats::qnorm(0.95), phi + stderr * stats::qnorm(0.95))]
