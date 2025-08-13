@@ -1,11 +1,5 @@
 # synthReturn <img src="inst/figures/synthReturn.png" align="right" alt="" width="130" />
 
----
-contributors:
-  - David H. Kreitmeir ([@davidkreitmeir](https://github.com/davidkreitmeir))
-  - Christian Düben ([@cdueben](https://github.com/cdueben))
----
-
 The `synthReturn` R package implements the revised *Synthetic Matching Algorithm* in [Kreitmeir et al. (2025)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) originally suggested by suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) to estimate an event's *cumulative treatment effect* on the stock return of treated firms.
 
 If you end up using this package, please cite our paper:
@@ -116,6 +110,11 @@ res.parallel <- synthReturn(
 print(res.boot)
 ```
 
+---
+Contributors:
+  - David H. Kreitmeir ([@davidkreitmeir](https://github.com/davidkreitmeir))
+  - Christian Düben ([@cdueben](https://github.com/cdueben))
+---
 
 <!--- ## Empirical Framework
 
