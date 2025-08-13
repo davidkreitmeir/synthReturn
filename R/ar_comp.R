@@ -1,16 +1,10 @@
 ###################################################################################
-#' Function that computes AR for treated firm.
-#'
-#' @description \code{ar_comp} is used calculate the abnormal return for a treated firm. The abnormal return
-#' is computed as the raw return of the treated firm minus the return of its synthetic match.
-#'
-#' @param data The name of the data.table that contains the data.
-#'
-#' @return A data.table containing the following columns:
-#'  \item{tau}{Relative time to event date.}
-#'  \item{ar}{Abnormal return.}
-#'  \item{sigma}{"Goodness" of fit measure.}
-#'
+## Function to compute
+## 1. Optimal weights for synthetic control returns
+## 3. Abnormal Returns (ARs) for a given treatment and control group
+## 2. "Goodness" of match (sigma)
+###################################################################################
+
 
 ar_comp <- function(data_treat, data_control, estwind, eventwind) {
 

@@ -1,7 +1,6 @@
-##########
-## Print
-##########
-## a synthReturn object
+###################################################################################
+## Print a synthReturn object
+###################################################################################
 
 #' @exportS3Method synthReturn::print
 print.synthReturn <-  function(x,

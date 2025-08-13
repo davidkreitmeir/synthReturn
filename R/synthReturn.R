@@ -78,31 +78,6 @@
 #' set.seed(123) # set random seed
 #'
 #' # Run synthReturn
-#' res.boot <- synthReturn(
-#'   data = ret_two_evdates,
-#'   unitname = "unit",
-#'   treatname = "treat",
-#'   dname = "date",
-#'   rname = "ret",
-#'   edname = "eventdate",
-#'   estwind = c(-100,-1),
-#'   eventwind = c(0,5),
-#'   estobs_min = 1,
-#'   eventobs_min = 1,
-#'   inference = "bootstrap",
-#'   correction = FALSE,
-#'   ncontrol_min = 10,
-#'   ndraws = 100,
-#'   ncores = 1
-#'   )
-#'
-#' # -----------------------------------------------
-#' # Example with Nonparametric Bootstrap
-#' # -----------------------------------------------
-#'
-#' set.seed(123) # set random seed
-#'
-#' # Run synthReturn
 #' res.placebo <- synthReturn(
 #'   data = ret_two_evdates,
 #'   unitname = "unit",
@@ -121,6 +96,30 @@
 #'   ncores = 1
 #'   )
 #'
+#' # -----------------------------------------------
+#' # Example with Nonparametric Bootstrap
+#' # -----------------------------------------------
+#'
+#' set.seed(123) # set random seed
+#'
+#' # Run synthReturn
+#' res.boot <- synthReturn(
+#'   data = ret_two_evdates,
+#'   unitname = "unit",
+#'   treatname = "treat",
+#'   dname = "date",
+#'   rname = "ret",
+#'   edname = "eventdate",
+#'   estwind = c(-100,-1),
+#'   eventwind = c(0,5),
+#'   estobs_min = 1,
+#'   eventobs_min = 1,
+#'   inference = "bootstrap",
+#'   correction = FALSE,
+#'   ncontrol_min = 10,
+#'   ndraws = 100,
+#'   ncores = 1
+#'   )
 
 
 #' @export

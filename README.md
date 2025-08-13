@@ -1,12 +1,16 @@
 # synthReturn <img src="inst/figures/synthReturn.png" align="right" alt="" width="130" />
 
-The `synthReturn` R package implements the synthetic matching method originally suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) and modified by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) to estimate the *average treatment effect* $\widehat{\phi}$ of an event on the stock return of all treated firms. The new version of the synthetic matching method by [Kreitmeir et al. (2023)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) accommodates *(i)* multiple event dates and *(ii)* deals with missing values directly instead of relying on the assumption that they are equal to 0.
+---
+contributors:
+  - David H. Kreitmeir ([@davidkreitmeir](https://github.com/davidkreitmeir))
+  - Christian Düben ([@cdueben](https://github.com/cdueben))
+---
 
-For more details on the empirical framework, please see the [Empirical Framework Section](#empirical-framework) below.
+The `synthReturn` R package implements the revised *Synthetic Matching Algorithm* in [Kreitmeir et al. (2025)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) originally suggested by suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) to estimate an event's *cumulative treatment effect* on the stock return of treated firms.
 
 If you end up using this package, please cite our paper:
 
-* Kreitmeir, D., Lane, N., and Raschky, P. A. (2023). The value of names - Civil society, information, and governing multinationals. *SSRN WP 3751162*, https://ssrn.com/abstract=3751162
+* Kreitmeir, D. H., Lane, N., and Raschky, P. A. [Forthcoming]. The value of names - Civil society, information, and governing multinationals., *Journal of the European Economic Association*, *Forthcoming*
 
 
 ## Installation
@@ -19,63 +23,101 @@ devtools::install_github("davidkreitmeir/synthReturn")
 
 ## Short examples
 
-The following is an illustration of the method for a simulated dataset with *(i)* two event-dates and *(ii)* no missing values. For details on the generation of the simulated dataset(s), please see `data-raw/sim_ret.R`.
+The following is an illustration of the method for a simulated dataset with two event-dates.
 
-Let's first get the data ready:
 ```
 library(synthReturn)
 # Load data in that comes in the synthReturn package
 data(ret_two_evdates)
 ```
-Now, to estimate the *average treatment effect* $\widehat{\phi}$ with the synthetic matching method, we can use the `synthReturn` function:
+
+1. We run the synthetic matching algorithm with *permutation* inference.
+
 ```
-results <- synthReturn(
+set.seed(123) # set random seed
+
+# Run synthReturn
+res.placebo <- synthReturn(
   data = ret_two_evdates,
-    tidname = "treatid",
-    cidname = "controlid",
-    rname = "ret",
-    dname = "date",
-    edname = "eventdate",
-    estwind = c(-100,-1),
-    eventwind = c(0,5),
-    estobs_min = 1,
-    eventobs_min = 1,
-    placebo = TRUE,
-    ngroup = 2,
-    ndraws = 10
+  unitname = "unit",
+  treatname = "treat",
+  dname = "date",
+  rname = "ret",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 1,
+  eventobs_min = 1,
+  inference = "permutation",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = 1
 )
 
-results$ate
+# Print result table
+print(res.placebo)
 ```
 
-For the **case that returns are missing** for firms either in the treatment or control group, you can set a threshold for the minimum of non-missing trading days during both the *estimation* (`estobs_min`) and *event window* (`eventobs_min`). In this example, I require each firm to have non-missing returns for at least 90% of trading days during both, the *estimation* and *event window* (Note that the default is no missing returns, i.e. 100%).
+2. We run the synthetic matching algorithm with a *nonparametric bootstrap* procedure to obtain uncertainty estimates.
 
 ```
+set.seed(123) # set random seed
 
-# Load data in that comes in the synthReturn package
-data(ret_two_evdates_na) # 5% of all returns missing
-
-results <- synthReturn(
+# Run synthReturn
+res.boot <- synthReturn(
   data = ret_two_evdates,
-    tidname = "treatid",
-    cidname = "controlid",
-    rname = "ret",
-    dname = "date",
-    edname = "eventdate",
-    estwind = c(-100,-1),
-    eventwind = c(0,5),
-    estobs_min = 0.9,
-    eventobs_min = 0.9,
-    placebo = TRUE,
-    ngroup = 2,
-    ndraws = 10
+  unitname = "unit",
+  treatname = "treat",
+  dname = "date",
+  rname = "ret",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 1,
+  eventobs_min = 1,
+  inference = "bootstrap",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = 1
 )
 
-results$ate
+# Print result table
+print(res.boot)
+```
+
+3. We make use of the parallelization of `synthRetrun` by setting `ncores = NULL`. The default `ncores = NULL` uses all available cores. In addition, we provide the option `static_scheduling` to set the scheduling type, where `TRUE` (default) implies static scheduling, and `FALSE` dynamic scheduling. Note that the scheduling choice has no effect on Windows machines and when `ncores = 1`.
+
+```
+set.seed(123) # set random seed
+
+# Run synthReturn
+res.parallel <- synthReturn(
+  data = ret_two_evdates,
+  unitname = "unit",
+  treatname = "treat",
+  dname = "date",
+  rname = "ret",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 1,
+  eventobs_min = 1,
+  inference = "permutation",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = NULL,
+  static_scheduling = TRUE
+)
+
+# Print result table
+print(res.boot)
 ```
 
 
-## Empirical Framework
+<!--- ## Empirical Framework
 
 A synthetic match for each company $i$ in the treatment group is found by solving the following optimization problem:
 ```math
@@ -109,3 +151,5 @@ The cumulative abnormal return for the period $0$ to $k$ is adjusted for the "go
 where $\widehat{\phi}\left(0,k\right)$ is the cumulative effect over the period $\tau_{1}=0$ to $\tau_{2}$ in the *event window*. The treatment effect is, hence, a weighted average of each event-firm specific effect, with greater weight given to the estimated effects for which the synthetic firm tracks the return of the treated company more closely during the *estimation window*.
 
 To draw inference, confidence intervals are constructed by randomly drawing *placebo* treatment groups, as suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605). To accommodate multiple event dates `synthRetrun` draws $K \times E$ *placebo* treatment groups of size $N$, where $K$ is the number of random draws at each event date $e$, with the number of (unique) event dates equaling $E$. The cumulative abnormal return effect is significant at the 10\%, 5\%, or 1\% level if the actual estimated treatment effect $\widehat{\phi}$ lies outside of the interval that contains the $\left[5,95\right]$, $\left[2.5,97.5\right]$, or $\left[0.5,99.5\right]$ percentiles of the *placebo* treatment effects $\widehat{\phi}_{\text{placebo}}$.
+
+---->

@@ -1,18 +1,6 @@
 ###################################################################################
-#' Function that computes treatment effect for placebo treatment group.
-#'
-#' @description \code{phi_comp_placebo} Wrapper function to compute \eqn{\phi} for
-#' placebo treatment group.
-#'
-#' @param r_treat_placebo Returns of placebo treatment group.
-#' @param dt_control Returns of control group (includes placebo treatment group returns.
-#' @param estwind Argument to set estimation window period in relative time to event,
-#' i.e. `c(estwind_start, estwind_end)`
-#'
-#' @return A data.table containing the following columns:
-#'  \item{tau}{Relative time to event date.}
-#'  \item{phi}{(Placebo) treatment effect.}
-#'
+## Function to compute cumulative treatment effect for placebo treatment group
+###################################################################################
 
 phi_comp_placebo <- function(placebo_treat_id, r_control_ed, estwind, eventwind, sigma_cutoff) {
 

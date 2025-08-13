@@ -1,3 +1,7 @@
+###################################################################################
+## Function to calculate the cumulative treatment effect for the bootstrapped
+## sample
+###################################################################################
 
 
 phi_comp_bootstrap <- function(r_treat, r_control, estwind, eventwind, sigma_cutoff) {

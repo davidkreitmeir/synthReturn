@@ -1,6 +1,7 @@
 ###################################################################################
-#' Helper Functions used throughout package
-#'
+## Helper Functions used throughout package
+###################################################################################
+
 
 #' @describeIn goodness of match fit function (equation 8) in Acemoglu et al. (2016).
 sigmafun <- function(x) {

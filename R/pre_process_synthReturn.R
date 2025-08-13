@@ -1,9 +1,7 @@
+################################################################################
+## Helper function to pre-process data and arguments for synthReturn
+################################################################################
 
-###################################################################################
-#' Function that pre-process the data to use with synthReturn
-#'
-#' @description Function that pre-process the data to use with `synthReturn`
-#'
 pre_process_synthReturn <- function(
   DT,
   unitname,

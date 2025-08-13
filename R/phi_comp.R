@@ -1,16 +1,7 @@
 ###################################################################################
-#' Function that computes treatment effect for treatment group.
-#'
-#' @description \code{phi_comp} Wrapper function to compute \eqn{\phi} for
-#' placebo treatment group.
-#'
-#' @param r_treat Returns of placebo treatment group.
-#' @param r_control Returns of control group (includes placebo treatment group returns.
-#'
-#' @return A list containing the following components:
-#' \item{phi}{Data.frame containing the average treatment effect estimates \eqn{\phi} by relative event day \eqn{\tau}.}
-#' \item{ar}{Data.frame containing the estimated abnormal returns, and the "goodness" of the synthetic match estimate \eqn{\sigma} for all firms in the (actual) treatment group.}
-#'
+## Function to compute the benchmark cumulative treatment effect
+###################################################################################
+
 
 phi_comp <- function(r_treat, r_control, r_treat_ed, estwind, eventwind, ncores, static_scheduling, is_windows, inference) {
 
