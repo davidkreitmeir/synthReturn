@@ -4,7 +4,7 @@ The `synthReturn` R package implements the revised *Synthetic Matching Algorithm
 
 If you end up using this package, please cite our paper:
 
-* Kreitmeir, D. H., Lane, N., and Raschky, P. A. [Forthcoming]. The value of names - Civil society, information, and governing multinationals., *Journal of the European Economic Association*, *Forthcoming*
+* Kreitmeir, D. H., Lane, N., and Raschky, P. A. [Forthcoming]. The value of names - Civil society, information, and governing multinationals., *Journal of the European Economic Association*.
 
 
 ## Installation
