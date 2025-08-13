@@ -1,6 +1,6 @@
 # synthReturn <img src="inst/figures/synthReturn.png" align="right" alt="" width="130" />
 
-The `synthReturn` R package implements the revised *Synthetic Matching Algorithm* in [Kreitmeir et al. (2025)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) originally suggested by suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) to estimate an event's *cumulative treatment effect* on the stock return of treated firms.
+The `synthReturn` R package implements the revised *Synthetic Matching Algorithm* in [Kreitmeir et al. (2025)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162) originally suggested by suggested by [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605) to estimate an event's *cumulative treatment effect* on the stock return of treated firms. For details on the *Synthetic Matching Algorithm* and the available inference methods, please see Section A.2 in the supplementary Online Appendix.
 
 If you end up using this package, please cite our paper:
 
@@ -107,7 +107,7 @@ res.parallel <- synthReturn(
 )
 
 # Print result table
-print(res.boot)
+print(res.parallel)
 ```
 
 ---
