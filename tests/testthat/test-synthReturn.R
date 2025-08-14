@@ -1,15 +1,17 @@
-test_that("synthReturn works for 1 event date, no missing values and 1 data frame", {
-
+test_that("synthReturn works for 2 event dates, no missing values", {
   # load example data
-  data("ret_one_evdate")
+  data("ret_two_evdates")
 
   synthReturn(
-    data = ret_one_evdate,
-    tidname = treatid,
-    cidname = controlid,
-    dname = date,
-    rname = ret,
-    estwind = c(-100, -1),
-    eventwind = c(0, 5)
+    data = ret_two_evdates,
+    unitname = "unit",
+    treatname = "treat",
+    dname = "date",
+    rname = "ret",
+    edname = "eventdate",
+    estwind = c(-50, -1),
+    eventwind = c(0, 3),
+    inference = "none",
+    ncores = 1
   )
 })

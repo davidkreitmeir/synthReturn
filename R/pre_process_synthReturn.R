@@ -196,7 +196,7 @@ pre_process_synthReturn <- function(
   # Drop NA treat rows
   if(anyNA(DT[[treatname]])) {
     nr_DT_pre <- nrow(DT)
-    DT <- na.omit(DT, cols = treatname)
+    DT <- stats::na.omit(DT, cols = treatname)
     message("Dropping ", nr_DT_pre - nrow(DT), " rows because of NA values in ", treatname, ".")
   }
 

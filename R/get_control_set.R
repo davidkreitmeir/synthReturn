@@ -18,7 +18,7 @@ get_control_set <- function(
   # get relative time variable
   out[, tau := (1:.N) - which(d == eventdate), by = "unit_id"]
   # drop units not observed on event date
-  out <- na.omit(out, cols = "tau")
+  out <- stats::na.omit(out, cols = "tau")
   # subset to observations in event and estimation windows
   out <- out[(tau %between% estwind) | (tau %between% eventwind),]
   # subset to units with enough observations in estimation window

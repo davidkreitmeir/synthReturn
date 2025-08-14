@@ -44,7 +44,10 @@ interval only considers observed days. See details.}
 \item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}. 0 is the event date. The
 interval only considers observed days. See details.}
 
-\item{estobs_min}{Argument to define minimum number of trading days during the event window. Can be an
+\item{estobs_min}{Argument to define minimum number of trading days during the estimation window.
+Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
+
+\item{eventobs_min}{Argument to define minimum number of trading days during the event window. Can be an
 integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
 
 \item{inference}{Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is \code{"none"}.}
@@ -109,6 +112,31 @@ data(ret_two_evdates)
 set.seed(123) # set random seed
 
 # Run synthReturn
+res.placebo <- synthReturn(
+  data = ret_two_evdates,
+  unitname = "unit",
+  treatname = "treat",
+  dname = "date",
+  rname = "ret",
+  edname = "eventdate",
+  estwind = c(-100,-1),
+  eventwind = c(0,5),
+  estobs_min = 1,
+  eventobs_min = 1,
+  inference = "permutation",
+  correction = FALSE,
+  ncontrol_min = 10,
+  ndraws = 100,
+  ncores = 1
+  )
+
+# -----------------------------------------------
+# Example with Nonparametric Bootstrap
+# -----------------------------------------------
+
+set.seed(123) # set random seed
+
+# Run synthReturn
 res.boot <- synthReturn(
   data = ret_two_evdates,
   unitname = "unit",
@@ -127,14 +155,16 @@ res.boot <- synthReturn(
   ncores = 1
   )
 
+
 # -----------------------------------------------
-# Example with Nonparametric Bootstrap
+# Example with Missing Returns
 # -----------------------------------------------
 
 set.seed(123) # set random seed
-
+# Randomly introduce 2\% of missing return values
+ret_two_evdates[sample.int(nrow(ret_two_evdates), floor(0.02*nrow(ret_two_evdates))), ret := NA]
 # Run synthReturn
-res.placebo <- synthReturn(
+res.boot <- synthReturn(
   data = ret_two_evdates,
   unitname = "unit",
   treatname = "treat",
@@ -143,9 +173,9 @@ res.placebo <- synthReturn(
   edname = "eventdate",
   estwind = c(-100,-1),
   eventwind = c(0,5),
-  estobs_min = 1,
-  eventobs_min = 1,
-  inference = "permutation",
+  estobs_min = 0.9, # require 90\% of trading days during estimation window w/ non-missing returns
+  eventobs_min = 0.9, # require 90\% of trading days during event window w/ non-missing returns
+  inference = "bootstrap",
   correction = FALSE,
   ncontrol_min = 10,
   ndraws = 100,

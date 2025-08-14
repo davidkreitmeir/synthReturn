@@ -1,8 +1,9 @@
 ###################################################################################
 #' Function that
 #'
-#' @description \code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
-#'  matching method suggested by Acemoglu et al. (2016) and revised by Kreitmeir et al. (2025).
+#' @description \code{synthReturn} implements the revised *Synthetic Matching Algorithm* of
+#' Kreitmeir et al. (2025), building on the original approach of Acemoglu et al. (2016), to estimate
+#' the *cumulative treatment effect* of an event on treated firms’ stock returns.
 #'
 #' @param data The name of the data frame that contains the data.
 #' @param unitname The name of the column containing IDs of treated and control units.
@@ -18,7 +19,7 @@
 #' interval only considers observed days. See details.
 #' @param estobs_min Argument to define minimum number of trading days during the estimation window.
 #' Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
-#' @param estobs_min Argument to define minimum number of trading days during the event window. Can be an
+#' @param eventobs_min Argument to define minimum number of trading days during the event window. Can be an
 #' integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.
 #' @param inference Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is `"none"`.
 #' @param correction Logical defining if "corrected" synthetic matching results are used for inference. If `TRUE` firms that do not have a good synthetic
@@ -120,6 +121,34 @@
 #'   ndraws = 100,
 #'   ncores = 1
 #'   )
+#'
+#'
+#' # -----------------------------------------------
+#' # Example with Missing Returns
+#' # -----------------------------------------------
+#'
+#' set.seed(123) # set random seed
+#' # Randomly introduce 2% of missing return values
+#' ret_two_evdates[sample.int(nrow(ret_two_evdates), floor(0.02*nrow(ret_two_evdates))), ret := NA]
+#' # Run synthReturn
+#' res.boot <- synthReturn(
+#'   data = ret_two_evdates,
+#'   unitname = "unit",
+#'   treatname = "treat",
+#'   dname = "date",
+#'   rname = "ret",
+#'   edname = "eventdate",
+#'   estwind = c(-100,-1),
+#'   eventwind = c(0,5),
+#'   estobs_min = 0.9, # require 90% of trading days during estimation window w/ non-missing returns
+#'   eventobs_min = 0.9, # require 90% of trading days during event window w/ non-missing returns
+#'   inference = "bootstrap",
+#'   correction = FALSE,
+#'   ncontrol_min = 10,
+#'   ndraws = 100,
+#'   ncores = 1
+#'   )
+#'
 
 
 #' @export
