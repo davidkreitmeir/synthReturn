@@ -2,7 +2,7 @@
 % Please edit documentation in R/synthReturn.R
 \name{synthReturn}
 \alias{synthReturn}
-\title{Function that}
+\title{Compute synthetic returns}
 \usage{
 synthReturn(
   data,
@@ -35,14 +35,14 @@ be time-constant within a unit because they mark whether a unit was ever treated
 
 \item{rname}{The name of the column containing the stock returns.}
 
-\item{edname}{The name of the column containing the (treatment unit-specific) event date. All event dates must also exist as dates in \code{dname}. The
-column must either be of type \code{Date} or numeric. Event date values are ignored for control group units. See details.}
+\item{edname}{The name of the column containing the (treatment unit-specific) event date. All event dates must also exist in \code{dname}. The column must
+either be of type \code{Date} or numeric. Event date values are ignored for control group units. See details.}
 
 \item{estwind}{Argument to set estimation window period in relative time to event, i.e. \code{c(estwind_start, estwind_end)}. 0 is the event date. The
-interval only considers observed days. See details.}
+interval only considers observed time periods. See details.}
 
 \item{eventwind}{Argument to set event window period in relative time to event, i.e. \code{c(eventwind_start, eventwind_end)}. 0 is the event date. The
-interval only considers observed days. See details.}
+interval only considers observed time periods. See details.}
 
 \item{estobs_min}{Argument to define minimum number of trading days during the estimation window.
 Can be an integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no missing trading days are allowed.}
@@ -53,19 +53,19 @@ integer or a proportion (i.e. between 0 and 1). Default is \eqn{1}, i.e. no miss
 \item{inference}{Argument to define which inference method is to be used. Both permutation and bootstrap inference are implemented. Default is \code{"none"}.}
 
 \item{correction}{Logical defining if "corrected" synthetic matching results are used for inference. If \code{TRUE} firms that do not have a good synthetic
-match, defined as firms in the control group with \eqn{\sigma} more than \eqn{\sqrt3} times the average \eqn{\sigma} of the treated firms.
-Default is \code{FALSE}.}
+match, defined as firms in the control group with \eqn{\sigma} more than \eqn{\sqrt3} times the average \eqn{\sigma} of the treated firms, are excluded.
+Default is \code{FALSE}. \code{correction} has no effect if \code{inference = "none"}.}
 
 \item{ncontrol_min}{Minimum number of control firms required to create synthetic match. Default is \eqn{10}.}
 
-\item{ndraws}{Number of randomly drawn placebo treatment groups if \code{inference = "permutation"}. Number of nonparametric bootstrap repetitions if \code{inference = "bootstrap"}.
-Has to be larger than \eqn{1}. \code{ndraws} has no effect if \code{inference = "none"}}
+\item{ndraws}{Number of randomly drawn placebo treatment groups if \code{inference = "permutation"}. Number of nonparametric bootstrap repetitions if
+\code{inference = "bootstrap"}. Has to be larger than \eqn{1}. \code{ndraws} has no effect if \code{inference = "none"}.}
 
 \item{ncores}{Number of CPU cores to use. \code{NULL} (the default) sets it to the number of available cores.}
 
 \item{static_scheduling}{Logical setting the parallel scheduling type. \code{TRUE} (default) implies static scheduling, \code{FALSE} dynamic scheduling. This
 parameter does not change the output object. It only influences the speed of the function. The scheduling choice has no effect when \code{ncores = 1} and in
-placebo estimations on Windows machines.}
+\code{inference = "permutation"} estimations on Windows machines.}
 }
 \value{
 An S3 object containing the following components:
@@ -73,7 +73,7 @@ An S3 object containing the following components:
 \item{n_treat_res}{Number of treatment units in the data that fulfill the minimum requirements and are used in the calculation of
 the average treatment effect \eqn{\phi}.}
 \item{ate}{Data.table containing the relative time period \eqn{\tau} and the average treatment effect estimates \eqn{\phi}. If the user selects
-\code{inference = "permutation"}, the data.table additionally reports the p-value and the 95\\% confidence interval. If the user selects
+\code{inference = "permutation"}, the data.table additionally reports the p-value and the 95 percent confidence interval. If the user selects
 \code{inference = "bootstrap"}, the data.table additionally reports the standard error, the p-value and the 95 percent confidence interval.}
 \item{ar}{Data.table reporting the estimated abnormal returns, the "goodness" of the synthetic match estimate \eqn{\sigma}, the weighted cumulative abnormal
 return and the corresponding weights for all treated firms.}
@@ -83,18 +83,19 @@ if the user chooses \code{inference = "bootstrap"}.}
 \item{ate_placebo}{Data.table containing the average treatment effect estimates \eqn{\phi} for each placebo treatment group draw. Returned
 if the user chooses \code{inference = "permutation"}.}
 \item{n_placebo}{Number of placebo draws that returned a valid result.}
-\item{arg}{List with arguments used in the call.}
+\item{call}{List with arguments used in the call.}
 }
 \description{
-\code{synthReturn} computes the average treatment effect \eqn{\phi} using the synthetic
-matching method suggested by Acemoglu et al. (2016) and revised by Kreitmeir et al. (2025).
+\code{synthReturn} implements the revised \emph{Synthetic Matching Algorithm} of
+Kreitmeir et al. (2025), building on the original approach of Acemoglu et al. (2016), to estimate
+the \emph{cumulative treatment effect} of an event on treated firms’ stock returns.
 }
 \details{
 The data's \code{dname} and \code{edname} columns refer to dates. \code{dname} is the date that a row refers to. \code{edname} is the date when a unit was treated.
 I.e., \code{edname} is constant across all rows per unit. And it is ignored for never treated units.
 
-The package uses the term "term" for consistency with the literature. Internally, it does not care what interval a time period refers to. It evaluates
-units' sequences of distinct \code{Date} or numerical values in \code{dname} and \code{edname}, irrespective of whether they denote days, hours, etc.
+The package does not care what interval a time period refers to. It evaluates units' sequences of distinct \code{Date} or numerical values in \code{dname} and
+\code{edname}, irrespective of whether they denote days, hours, etc.
 
 \code{estwind} and \code{eventwind} describe sections in these sequences. 0 is the treatment time. Hence, \code{c(-1, -100)} is a unit's 100 observations before
 treatment. When \code{dname} and \code{edname} are in days and a specific unit is observed on 2 days per week, \code{c(-1, -100)} covers 50 weeks before treatment in
@@ -153,8 +154,7 @@ res.boot <- synthReturn(
   ncontrol_min = 10,
   ndraws = 100,
   ncores = 1
-  )
-
+)
 
 # -----------------------------------------------
 # Example with Missing Returns
@@ -180,6 +180,6 @@ res.boot <- synthReturn(
   ncontrol_min = 10,
   ndraws = 100,
   ncores = 1
-  )
+)
 
 }

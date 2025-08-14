@@ -1,17 +1,28 @@
-citHeader("If you use this software, please cite the following paper as below:")
+citHeader("If you use this software, please cite the package and paper as below:")
 
 bibentry(
-  bibtype     = "TechReport",
+  bibtype     = "manual",
+  title       = "synthReturn",
+  author      = c(
+                  person("David", "Kreitmeir", email = "david.kreitmeir1@monash.edu", comment = c(ORCID = "0009-0000-1808-1855")),
+                  person("Christian", "Düben", email = "cdueben.ml+cran@proton.me")
+                ),
+  year        = "2025",
+  note        = "R Package Version 1.0.0",
+  url         = "https://github.com/davidkreitmeir/synthReturn",
+  textVersion = "Kreitmeir, D., and Düben, C. (2025). synthReturn. R Package Version 1.0.0."
+)
+
+bibentry(
+  bibtype     = "Article",
   title       = "The Value of Names - Civil Society, Information, and Governing Multinationals",
   author      = c(
                   person("David", "Kreitmeir", email = "david.kreitmeir1@monash.edu", comment = c(ORCID = "0009-0000-1808-1855")),
                   person("Nathan", "Lane"),
                   person("Paul", "Raschky")
                 ),
-  year        = "2023",
-  number      = "3751162",
-  institution = "SSRN",
-  url         = "https://ssrn.com/abstract=3751162",
-  doi         = "10.2139/ssrn.3751162",
-  textVersion = "Kreitmeir, D., Lane, N., Raschky, P. (2023). The Value of Names - Civil Society, Information, and Governing Multinationals. https://doi.org/10.2139/ssrn.3751162."
+  year        = "2025",
+  volume      = "Conditionally Accepted",
+  journal     = "Journal of the European Economic Association",
+  textVersion = "Kreitmeir, D., Lane, N., Raschky, P. (2023). The Value of Names - Civil Society, Information, and Governing Multinationals. Journal of the European Economic Association (Conditionally Accepted)."
 )

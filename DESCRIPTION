@@ -1,10 +1,11 @@
 Package: synthReturn
 Type: Package
 Title: Synthetic Matching Method for Returns
-Version: 0.2.0
+Version: 1.0.0
 Authors@R: c(person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre")), person("Christian", "Düben",
   email = "cdueben.ml+cran@proton.me", role = "ctb"))
-Description: Implements the revised Synthetic Matching Algorithm of Kreitmeir et al. (2025), building on the original approach of Acemoglu et al. (2016), to estimate the cumulative treatment effect of an event on treated firms’ stock returns.
+Description: Implements the revised Synthetic Matching Algorithm of Kreitmeir et al. (2025), building on the original approach of Acemoglu et al. (2016), 
+  to estimate the cumulative treatment effect of an event on treated firms’ stock returns.
 License: MIT + file LICENSE
 Encoding: UTF-8
 URL: https://github.com/davidkreitmeir/synthReturn

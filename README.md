@@ -4,8 +4,9 @@ The `synthReturn` R package implements the revised *Synthetic Matching Algorithm
 
 If you end up using this package, please cite the package and our paper:
 
-* Kreitmeir, D. H., Lane, N., and Raschky, P. A. (2025). The value of names - Civil society, information, and governing multinationals., *conditionally accepted at Journal of the European Economic Association*.
+* Kreitmeir, D., and Düben, C. (2025). synthReturn. R Package Version 1.0.0.
 
+* Kreitmeir, D., Lane, N., and Raschky, P. A. (2025). The value of names - Civil society, information, and governing multinationals., *conditionally accepted at Journal of the European Economic Association*.
 
 ## Installation
 
@@ -81,7 +82,7 @@ res.boot <- synthReturn(
 print(res.boot)
 ```
 
-3. We make use of the parallelization of `synthRetrun` by setting `ncores = NULL`. The default `ncores = NULL` uses all available cores. In addition, we provide the option `static_scheduling` to set the scheduling type, where `TRUE` (default) implies static scheduling, and `FALSE` dynamic scheduling. Note that the scheduling choice has no effect on Windows machines and when `ncores = 1`.
+3. We make use of the parallelization of `synthRetrun` by setting `ncores = NULL`. The default `ncores = NULL` uses all available cores. In addition, we provide the option `static_scheduling` to set the scheduling type, where `TRUE` (default) implies static scheduling, and `FALSE` dynamic scheduling. Note that the scheduling choice has no effect when `ncores = 1` and in `inference = "permutation"` estimations on Windows machines.
 
 ```
 set.seed(123) # set random seed
