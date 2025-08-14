@@ -2,7 +2,7 @@
 
 The `synthReturn` R package implements the revised *Synthetic Matching Algorithm* of [Kreitmeir et al. (2025)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3751162), building on the original approach of [Acemoglu et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0304405X16300605), the *cumulative treatment effect* of an event on treated firms’ stock returns. For details on the *Synthetic Matching Algorithm* and the available inference methods, see Section A.2 of the supplementary Online Appendix.
 
-If you end up using this package, please cite our paper:
+If you end up using this package, please cite the package and our paper:
 
 * Kreitmeir, D. H., Lane, N., and Raschky, P. A. (2025). The value of names - Civil society, information, and governing multinationals., *conditionally accepted at Journal of the European Economic Association*.
 
