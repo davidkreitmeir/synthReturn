@@ -127,7 +127,7 @@ res.placebo <- synthReturn(
   inference = "permutation",
   correction = FALSE,
   ncontrol_min = 10,
-  ndraws = 100,
+  ndraws = 25,
   ncores = 1
   )
 
@@ -152,7 +152,7 @@ res.boot <- synthReturn(
   inference = "bootstrap",
   correction = FALSE,
   ncontrol_min = 10,
-  ndraws = 100,
+  ndraws = 25,
   ncores = 1
 )
 
@@ -178,7 +178,7 @@ res.boot <- synthReturn(
   inference = "bootstrap",
   correction = FALSE,
   ncontrol_min = 10,
-  ndraws = 100,
+  ndraws = 25,
   ncores = 1
 )
 

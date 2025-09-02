@@ -93,7 +93,7 @@
 #'   inference = "permutation",
 #'   correction = FALSE,
 #'   ncontrol_min = 10,
-#'   ndraws = 100,
+#'   ndraws = 25,
 #'   ncores = 1
 #'   )
 #'
@@ -118,7 +118,7 @@
 #'   inference = "bootstrap",
 #'   correction = FALSE,
 #'   ncontrol_min = 10,
-#'   ndraws = 100,
+#'   ndraws = 25,
 #'   ncores = 1
 #' )
 #'
@@ -144,7 +144,7 @@
 #'   inference = "bootstrap",
 #'   correction = FALSE,
 #'   ncontrol_min = 10,
-#'   ndraws = 100,
+#'   ndraws = 25,
 #'   ncores = 1
 #' )
 #'
