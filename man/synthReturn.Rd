@@ -127,14 +127,14 @@ res.placebo <- synthReturn(
   inference = "permutation",
   correction = FALSE,
   ncontrol_min = 10,
-  ndraws = 25,
+  ndraws = 10,
   ncores = 1
   )
 
 # -----------------------------------------------
 # Example with Nonparametric Bootstrap
 # -----------------------------------------------
-
+\donttest{
 set.seed(123) # set random seed
 
 # Run synthReturn
@@ -181,5 +181,6 @@ res.boot <- synthReturn(
   ndraws = 25,
   ncores = 1
 )
+}
 
 }
