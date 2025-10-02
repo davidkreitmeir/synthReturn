@@ -4,6 +4,7 @@
 <!-- badges: start -->
 <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"> </a>
 <a href="https://cran.r-project.org/package=synthReturn"><img src="https://www.r-pkg.org/badges/version/synthReturn" alt="Version"> </a>
+<a href="https://cran.r-project.org/package=synthReturn"><img src="https://cranlogs.r-pkg.org/badges/grand-total/synthReturn" alt="Downloads"> </a>
 <!-- badges: end -->
 
 
