@@ -348,7 +348,7 @@ synthReturn <- function(
 
       # calculate (two-sided) p-value
       pval_placebo <- res[["phi"]][phi_placebo, c("tau", "phi", "phi_permut"), on = "tau"]
-      pval_placebo[, `:=` (pval_lt = as.integer(phi < -abs(phi)), pval_ut = as.integer(phi > abs(phi)))]
+      pval_placebo[, `:=` (pval_lt = as.integer(phi_permut < -abs(phi)), pval_ut = as.integer(phi_permut > abs(phi)))]
       pval_placebo <- pval_placebo[, .(pval = mean(pval_lt, na.rm = TRUE) + mean(pval_ut, na.rm = TRUE)), by = "tau"]
 
       # calculate CI intervals
