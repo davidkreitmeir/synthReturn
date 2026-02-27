@@ -1,7 +1,7 @@
 Package: synthReturn
 Type: Package
 Title: Synthetic Matching Method for Returns
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(person("David H", "Kreitmeir", email = "david.kreitmeir1@monash.edu", role = c("aut", "cre")), person("Christian", "Düben",
   email = "cdueben.ml+cran@proton.me", role = "ctb"))
 Description: Implements the revised Synthetic Matching Algorithm of Kreitmeir, Lane, and Raschky (2025) <doi:10.2139/ssrn.3751162>, building on 
